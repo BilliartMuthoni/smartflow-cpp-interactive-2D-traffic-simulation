@@ -2,6 +2,7 @@
 // Usage: render [output-folder]   (default: output)
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <filesystem>
 #include <iostream>
@@ -402,6 +403,119 @@ void renderCurves(const std::string& dir) {
     c.saveBmp(dir + "/08-bezier-and-spline-curves.bmp", SCALE);
 }
 
+// Image 9 — The SmartFlow junction built from every technique so far:
+//   scan-line fill (roads, buildings, cars), polygon transformations (placing cars),
+//   Bresenham and dashed lines (markings), midpoint circles (signal lamps),
+//   midpoint ellipses (tree canopies and shadows), Bézier routes
+//   (car positions and headings), Catmull–Rom (side road), and both clipping
+//   algorithms (everything is clipped to the camera viewport).
+void renderJunctionScene(const std::string& dir) {
+    Canvas c(W, H, WHITE);
+    const double pi = std::acos(-1.0);
+    const ClipRect view{10, 10, W - 11, H - 11};
+
+    // Everything below is clipped to the viewport before it is drawn.
+    auto area = [&](const Polygon& poly, Color color) {
+        const Polygon visible = clipPolygon(poly, view);
+        if (!visible.empty()) fill(c, visible, color);
+    };
+    auto edge = [&](const Polygon& poly, Color color) {
+        for (std::size_t i = 0; i < poly.size(); ++i) {
+            const Point& a = poly[i];
+            const Point& b = poly[(i + 1) % poly.size()];
+            if (auto s = clipLine(a.x, a.y, b.x, b.y, view)) {
+                line(c, int(std::lround(s->x0)), int(std::lround(s->y0)),
+                     int(std::lround(s->x1)), int(std::lround(s->y1)), color);
+            }
+        }
+    };
+    auto inView = [&](int x, int y) { return x >= view.xmin && x <= view.xmax && y >= view.ymin && y <= view.ymax; };
+
+    // 1. Ground and roads (filled polygons), with a Catmull–Rom side road.
+    area(rectangle(0, 0, W, H), GRASS);
+    for (int offset = -5; offset <= 5; ++offset) {
+        for (const auto& p : polylinePixels(translate(catmullRomSpline(
+                 {{0, 270}, {50, 230}, {100, 255}, {140, 215}, {170, 205}}, 20), 0, offset))) {
+            if (inView(p.x, p.y)) c.set(p.x, p.y, ASPHALT);
+        }
+    }
+    area(rectangle(-20, 120, W + 20, 180), ASPHALT);
+    area(rectangle(170, -20, 230, H + 20), ASPHALT);
+
+    // 2. Markings: dashed centre lines, stop lines and zebra crossings.
+    auto dashes = [&](int x0, int y0, int x1, int y1) {
+        const auto pts = bresenhamLine(x0, y0, x1, y1);
+        for (std::size_t i = 0; i < pts.size(); ++i) {
+            if (i % 14 < 8 && inView(pts[i].x, pts[i].y)) c.set(pts[i].x, pts[i].y, YELLOW);
+        }
+    };
+    dashes(0, 150, 150, 150);  dashes(250, 150, W, 150);
+    dashes(200, 0, 200, 100);  dashes(200, 200, 200, H);
+    for (int k = 0; k < 6; ++k) {
+        area(rectangle(152, 123 + k * 10, 162, 128 + k * 10), WHITE);   // west crossing
+        area(rectangle(238, 123 + k * 10, 248, 128 + k * 10), WHITE);   // east crossing
+        area(rectangle(173 + k * 10, 102, 178 + k * 10, 112), WHITE);   // north crossing
+        area(rectangle(173 + k * 10, 188, 178 + k * 10, 198), WHITE);   // south crossing
+    }
+    edge({{148, 120}, {148, 150}}, WHITE);   edge({{252, 150}, {252, 180}}, WHITE);
+    edge({{200, 98}, {230, 98}}, WHITE);     edge({{170, 202}, {200, 202}}, WHITE);
+
+    // 3. Buildings: concave and rotated footprints, partly outside the viewport.
+    for (const auto& b : {translate(BUILDING, 30, 15), translate(scale(BUILDING, -1.2, 1, {0, 0}), 380, -5),
+                          translate(rotate(rectangle(0, 0, 80, 45), pi / 14, {40, 22}), 285, 220)}) {
+        area(b, ROOF_A);
+        edge(b, ASPHALT);
+    }
+
+    // 4. Trees: ellipse canopies with shadows.
+    for (const auto& t : {std::array<int, 4>{120, 60, 16, 12}, {110, 95, 10, 10}, {260, 85, 14, 11},
+                          {360, 100, 12, 16}, {255, 260, 11, 9}, {20, 200, 13, 10}}) {
+        if (inView(t[0], t[1])) tree(c, t[0], t[1], t[2], t[3]);
+    }
+
+    // 5. Cars. East-west traffic has green and is turning along the Bézier
+    //    routes: the curve gives the position, and the direction to a slightly
+    //    later point gives the heading. North-south traffic waits at red.
+    int i = 0;
+    auto car = [&](double x, double y, double heading) {
+        const Polygon body = placeCar(x, y, heading);
+        area(body, CAR_COLORS[i++ % 4]);
+        edge(body, WHITE);
+    };
+    const struct { int route; double t; } moving[] = {{0, 0.7}, {1, 0.8}, {3, 0.6}};
+    for (const auto& m : moving) {
+        const Route& r = ROUTES[m.route];
+        const Point at = cubicBezier(r.p0, r.p1, r.p2, r.p3, m.t);
+        const Point ahead = cubicBezier(r.p0, r.p1, r.p2, r.p3, m.t + 0.01);
+        car(at.x, at.y, std::atan2(ahead.y - at.y, ahead.x - at.x));
+    }
+    car(95, 135, 0);                 // eastbound, heading through on green
+    car(330, 165, pi);               // westbound
+    car(392, 165, pi);               // westbound, partly outside the viewport (clipped)
+    car(215, 82, pi / 2);            // southbound, stopped at the red signal
+    car(215, 54, pi / 2);
+    car(185, 216, -pi / 2);          // northbound, stopped at the red signal
+    car(185, 244, -pi / 2);
+    car(185, 290, -pi / 2);          // partly outside the viewport (clipped)
+
+    // 6. Signal heads at each corner: filled housings, midpoint-circle lamps.
+    constexpr Color HOUSING{35, 35, 40};
+    constexpr Color LAMP_ON[] = {{230, 50, 45}, {245, 170, 30}, {40, 200, 90}};
+    const struct { int x, y, lit; } signals[] = {{150, 92, 2}, {236, 92, 0}, {150, 186, 0}, {236, 186, 2}};
+    for (const auto& s : signals) {
+        area(rectangle(s.x, s.y, s.x + 10, s.y + 26), HOUSING);
+        for (int k = 0; k < 3; ++k) {
+            if (k == s.lit) disc(c, s.x + 5, s.y + 5 + k * 8, 3, LAMP_ON[k]);
+            else c.plot(midpointCircle(s.x + 5, s.y + 5 + k * 8, 3), GREY);
+        }
+    }
+
+    // 7. Viewport frame.
+    rectOutline(c, int(view.xmin), int(view.ymin), int(view.xmax), int(view.ymax), BLUE);
+
+    c.saveBmp(dir + "/09-junction-scene.bmp", SCALE);
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -416,6 +530,7 @@ int main(int argc, char** argv) {
         renderPolygonClipping(dir);
         renderEllipses(dir);
         renderCurves(dir);
+        renderJunctionScene(dir);
     } catch (const std::exception& e) {
         std::cerr << "Render failed: " << e.what() << '\n';
         return 1;
