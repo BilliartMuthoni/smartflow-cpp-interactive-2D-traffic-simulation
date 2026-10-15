@@ -100,10 +100,214 @@ void testCohenSutherland() {
     std::cout << "Cohen-Sutherland clipping: all tests passed\n";
 }
 
+bool samePoint(const g::Point& p, double x, double y) { return near(p.x, x) && near(p.y, y); }
+
+void testPolygonTransforms() {
+    const g::Polygon rect{{0, 0}, {4, 0}, {4, 3}, {0, 3}};
+
+    // 1. Shoelace area of a 4 x 3 rectangle is 12; reversing the order flips the sign
+    assert(near(g::signedArea(rect), 12));
+    const g::Polygon reversed{{0, 3}, {4, 3}, {4, 0}, {0, 0}};
+    assert(near(g::signedArea(reversed), -12));
+
+    // 2. Translation moves every vertex and keeps the area
+    auto moved = g::translate(rect, 10, -2);
+    assert(samePoint(moved[0], 10, -2) && samePoint(moved[2], 14, 1));
+    assert(near(g::signedArea(moved), 12));
+
+    // 3. Rotating 90 degrees about the origin maps (4, 0) to (0, 4); area is kept
+    const double quarter = std::acos(-1.0) / 2;
+    auto turned = g::rotate(rect, quarter, {0, 0});
+    assert(samePoint(turned[1], 0, 4));
+    assert(near(g::signedArea(turned), 12));
+
+    // 4. Rotating about the centre keeps the centre fixed
+    auto centre = g::vertexCentre(rect);
+    assert(samePoint(centre, 2, 1.5));
+    auto spun = g::rotate(rect, 0.7, centre);
+    assert(samePoint(g::vertexCentre(spun), 2, 1.5));
+
+    // 5. Scaling by (2, 3) multiplies the area by 6
+    auto bigger = g::scale(rect, 2, 3, {0, 0});
+    assert(samePoint(bigger[2], 8, 9));
+    assert(near(g::signedArea(bigger), 72));
+
+    // 6. The outline is closed: every vertex is on it
+    auto outline = g::polygonOutline(rect);
+    for (const auto& v : rect) {
+        bool found = false;
+        for (const auto& p : outline) found = found || (p.x == int(v.x) && p.y == int(v.y));
+        assert(found);
+    }
+
+    std::cout << "Polygon transformations: all tests passed\n";
+}
+
+bool contains(const std::vector<g::Pixel>& pixels, int x, int y) {
+    for (const auto& p : pixels) if (p.x == x && p.y == y) return true;
+    return false;
+}
+
+void testScanlineFill() {
+    // 1. A 4 x 3 rectangle covers exactly 12 pixel centres
+    const g::Polygon rect{{0, 0}, {4, 0}, {4, 3}, {0, 3}};
+    auto filled = g::scanlineFill(rect);
+    assert(filled.size() == 12);
+    assert(contains(filled, 0, 0) && contains(filled, 3, 2));
+    assert(!contains(filled, 4, 0) && !contains(filled, 0, 3));
+
+    // 2. Vertex order does not matter
+    const g::Polygon reversed{{0, 3}, {4, 3}, {4, 0}, {0, 0}};
+    assert(g::scanlineFill(reversed).size() == 12);
+
+    // 3. Concave L-shape: the notch stays empty, the arms are filled
+    const g::Polygon ell{{0, 0}, {6, 0}, {6, 2}, {2, 2}, {2, 6}, {0, 6}};
+    auto l = g::scanlineFill(ell);
+    assert(l.size() == 6 * 2 + 2 * 4);         // bottom bar 12 + upright 8
+    assert(contains(l, 5, 1) && contains(l, 1, 5));
+    assert(!contains(l, 4, 4));                // inside the notch
+
+    // 4. No pixel is filled twice
+    std::set<std::pair<int, int>> unique;
+    for (const auto& p : l) unique.insert({p.x, p.y});
+    assert(unique.size() == l.size());
+
+    // 5. Every filled pixel centre of a triangle lies inside it
+    const g::Polygon tri{{0, 0}, {10, 0}, {0, 10}};
+    for (const auto& p : g::scanlineFill(tri)) {
+        assert(p.x >= 0 && p.y >= 0 && (p.x + 0.5) + (p.y + 0.5) <= 10);
+    }
+
+    // 6. Degenerate input fills nothing
+    assert(g::scanlineFill({{0, 0}, {5, 5}}).empty());
+
+    std::cout << "Scan-line fill: all tests passed\n";
+}
+
+void testPolygonClipping() {
+    const g::ClipRect window{0, 0, 10, 10};
+
+    // 1. Fully inside: unchanged
+    const g::Polygon inside{{2, 2}, {8, 2}, {8, 8}, {2, 8}};
+    auto kept = g::clipPolygon(inside, window);
+    assert(kept.size() == 4 && near(g::signedArea(kept), 36));
+
+    // 2. Fully outside: nothing left
+    assert(g::clipPolygon({{12, 1}, {15, 1}, {15, 4}}, window).empty());
+
+    // 3. Half outside on the right: a 10 x 4 rectangle keeps its left 6 x 4
+    const g::Polygon overRight{{4, 3}, {14, 3}, {14, 7}, {4, 7}};
+    auto half = g::clipPolygon(overRight, window);
+    assert(near(g::signedArea(half), 24));
+    for (const auto& p : half) assert(p.x >= 0 && p.x <= 10 && p.y >= 0 && p.y <= 10);
+
+    // 4. Larger than the window on every side: the result is the window itself
+    auto all = g::clipPolygon({{-5, -5}, {15, -5}, {15, 15}, {-5, 15}}, window);
+    assert(near(g::signedArea(all), 100));
+
+    // 5. A triangle over the top-right corner: its hypotenuse x + y = 20 passes
+    //    through (10, 10), so the visible part is the square [5,10] x [5,10]
+    const g::Polygon corner{{5, 5}, {15, 5}, {5, 15}};
+    auto cut = g::clipPolygon(corner, window);
+    assert(near(g::signedArea(cut), 25));
+    for (const auto& p : cut) assert(p.x >= 5 && p.x <= 10 && p.y >= 5 && p.y <= 10);
+
+    // 6. Concave L-shape cut by the window keeps the correct area
+    const g::Polygon ell{{-2, 0}, {6, 0}, {6, 2}, {2, 2}, {2, 6}, {-2, 6}};
+    assert(near(g::signedArea(g::clipPolygon(ell, window)), 6 * 2 + 2 * 4));
+
+    std::cout << "Sutherland-Hodgman clipping: all tests passed\n";
+}
+
+void testMidpointEllipse() {
+    for (auto [rx, ry] : {std::pair{8, 4}, {4, 8}, {20, 7}, {3, 3}, {30, 12}}) {
+        auto e = g::midpointEllipse(0, 0, rx, ry);
+        std::set<std::pair<int, int>> pts;
+        for (const auto& p : e) pts.insert({p.x, p.y});
+
+        // 1. No duplicates
+        assert(pts.size() == e.size());
+
+        // 2. The four extreme points are on the ellipse
+        assert(pts.count({rx, 0}) && pts.count({-rx, 0}) && pts.count({0, ry}) && pts.count({0, -ry}));
+
+        // 3. Four-way symmetry
+        for (auto [x, y] : pts) {
+            assert(pts.count({-x, y}) && pts.count({x, -y}) && pts.count({-x, -y}));
+        }
+
+        // 4. Every pixel is within one pixel of the true ellipse
+        for (auto [x, y] : pts) {
+            const double r = std::sqrt(double(x) * x / (rx * rx) + double(y) * y / (ry * ry));
+            assert(std::abs(r - 1) * std::min(rx, ry) <= 1.0);
+        }
+
+        // 5. Connected: every pixel has a neighbouring pixel
+        for (auto [x, y] : pts) {
+            bool neighbour = false;
+            for (int ox = -1; ox <= 1; ++ox)
+                for (int oy = -1; oy <= 1; ++oy)
+                    if ((ox || oy) && pts.count({x + ox, y + oy})) neighbour = true;
+            assert(neighbour);
+        }
+    }
+
+    // 6. Centre offset and degenerate radii
+    auto shifted = g::midpointEllipse(10, -5, 6, 3);
+    assert(contains(shifted, 16, -5) && contains(shifted, 10, -8));
+    assert(g::midpointEllipse(0, 0, 5, 0).size() == 11);   // flat: a line of 11 pixels
+    assert(g::midpointEllipse(0, 0, 0, 0).size() == 1);    // a single point
+
+    std::cout << "Midpoint ellipse: all tests passed\n";
+}
+
+void testCurves() {
+    const g::Point p0{0, 0}, p1{0, 10}, p2{10, 10}, p3{10, 0};
+
+    // 1. Bézier starts at P0 and ends at P3
+    assert(samePoint(g::cubicBezier(p0, p1, p2, p3, 0), 0, 0));
+    assert(samePoint(g::cubicBezier(p0, p1, p2, p3, 1), 10, 0));
+
+    // 2. Midpoint by hand: weights 1/8, 3/8, 3/8, 1/8 give (5, 7.5)
+    assert(samePoint(g::cubicBezier(p0, p1, p2, p3, 0.5), 5, 7.5));
+
+    // 3. Collinear control points give a straight line
+    for (const auto& p : g::bezierPoints({0, 0}, {3, 3}, {6, 6}, {9, 9}, 10)) assert(near(p.x, p.y));
+
+    // 4. bezierPoints returns segments + 1 samples from P0 to P3
+    auto samples = g::bezierPoints(p0, p1, p2, p3, 16);
+    assert(samples.size() == 17 && samePoint(samples.back(), 10, 0));
+
+    // 5. Catmull–Rom passes through P1 at t = 0 and P2 at t = 1
+    assert(samePoint(g::catmullRom(p0, p1, p2, p3, 0), 0, 10));
+    assert(samePoint(g::catmullRom(p0, p1, p2, p3, 1), 10, 10));
+
+    // 6. The spline passes through every control point, with the expected sample count
+    const std::vector<g::Point> control{{0, 0}, {10, 5}, {20, -3}, {30, 4}, {40, 0}};
+    auto spline = g::catmullRomSpline(control, 8);
+    assert(spline.size() == (control.size() - 1) * 8 + 1);
+    for (std::size_t i = 0; i < control.size(); ++i) {
+        assert(samePoint(spline[i * 8], control[i].x, control[i].y));
+    }
+
+    // 7. The drawn polyline is connected
+    auto pixels = g::polylinePixels(spline);
+    for (std::size_t i = 1; i < pixels.size(); ++i) {
+        assert(std::abs(pixels[i].x - pixels[i - 1].x) <= 1 && std::abs(pixels[i].y - pixels[i - 1].y) <= 1);
+    }
+
+    std::cout << "Bezier curves and Catmull-Rom splines: all tests passed\n";
+}
+
 int main() {
     testBresenham();
     testMidpointCircle();
     testCohenSutherland();
+    testPolygonTransforms();
+    testScanlineFill();
+    testPolygonClipping();
+    testMidpointEllipse();
+    testCurves();
     std::cout << "All graphics tests passed\n";
     return 0;
 }

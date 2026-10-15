@@ -114,4 +114,271 @@ std::optional<Segment> clipLine(double x0, double y0, double x1, double y1,
     throw std::runtime_error("Line clipping did not converge.");
 }
 
+// ---- Polygons ----------------------------------------------------------
+
+Polygon translate(const Polygon& poly, double dx, double dy) {
+    Polygon out;
+    for (const auto& p : poly) out.push_back({p.x + dx, p.y + dy});
+    return out;
+}
+
+// Rotation about a pivot: move the pivot to the origin, apply
+//   x' = x cos(a) - y sin(a),   y' = x sin(a) + y cos(a),
+// then move back.
+Polygon rotate(const Polygon& poly, double angle, Point pivot) {
+    const double c = std::cos(angle);
+    const double s = std::sin(angle);
+    Polygon out;
+    for (const auto& p : poly) {
+        const double x = p.x - pivot.x;
+        const double y = p.y - pivot.y;
+        out.push_back({pivot.x + x * c - y * s, pivot.y + x * s + y * c});
+    }
+    return out;
+}
+
+Polygon scale(const Polygon& poly, double sx, double sy, Point pivot) {
+    Polygon out;
+    for (const auto& p : poly) {
+        out.push_back({pivot.x + (p.x - pivot.x) * sx, pivot.y + (p.y - pivot.y) * sy});
+    }
+    return out;
+}
+
+// Shoelace: area = 1/2 * sum(x_i * y_{i+1} - x_{i+1} * y_i).
+double signedArea(const Polygon& poly) {
+    double sum = 0;
+    for (std::size_t i = 0; i < poly.size(); ++i) {
+        const Point& a = poly[i];
+        const Point& b = poly[(i + 1) % poly.size()];
+        sum += a.x * b.y - b.x * a.y;
+    }
+    return sum / 2;
+}
+
+Point vertexCentre(const Polygon& poly) {
+    Point c{0, 0};
+    if (poly.empty()) return c;
+    for (const auto& p : poly) { c.x += p.x; c.y += p.y; }
+    return {c.x / poly.size(), c.y / poly.size()};
+}
+
+std::vector<Pixel> polygonOutline(const Polygon& poly) {
+    std::vector<Pixel> pixels;
+    for (std::size_t i = 0; i < poly.size(); ++i) {
+        const Point& a = poly[i];
+        const Point& b = poly[(i + 1) % poly.size()];
+        const auto edge = bresenhamLine(int(std::lround(a.x)), int(std::lround(a.y)),
+                                        int(std::lround(b.x)), int(std::lround(b.y)));
+        pixels.insert(pixels.end(), edge.begin(), edge.end());
+    }
+    return pixels;
+}
+
+std::vector<Pixel> scanlineFill(const Polygon& poly) {
+    std::vector<Pixel> pixels;
+    if (poly.size() < 3) return pixels;
+
+    double minY = poly[0].y, maxY = poly[0].y;
+    for (const auto& p : poly) { minY = std::min(minY, p.y); maxY = std::max(maxY, p.y); }
+
+    // Pixel row y is sampled through its centre, y + 0.5.
+    for (int y = int(std::floor(minY)); y <= int(std::ceil(maxY)); ++y) {
+        const double scanY = y + 0.5;
+
+        // 1. Find where this scan line crosses each edge. The half-open test
+        //    (one end <= scanY, the other > scanY) counts a shared vertex once
+        //    and skips horizontal edges.
+        std::vector<double> crossings;
+        for (std::size_t i = 0; i < poly.size(); ++i) {
+            const Point& a = poly[i];
+            const Point& b = poly[(i + 1) % poly.size()];
+            if ((a.y <= scanY) != (b.y <= scanY)) {
+                crossings.push_back(a.x + (scanY - a.y) * (b.x - a.x) / (b.y - a.y));
+            }
+        }
+
+        // 2. Sort the crossings from left to right.
+        std::sort(crossings.begin(), crossings.end());
+
+        // 3. Fill between pairs: inside after the 1st crossing, outside after the 2nd, ...
+        for (std::size_t i = 0; i + 1 < crossings.size(); i += 2) {
+            const int xStart = int(std::ceil(crossings[i] - 0.5));
+            const int xEnd = int(std::floor(crossings[i + 1] - 0.5));
+            for (int x = xStart; x <= xEnd; ++x) pixels.push_back({x, y});
+        }
+    }
+    return pixels;
+}
+
+namespace {
+// One window edge, written as a test "is this point inside?" and the
+// intersection of segment a-b with the edge's line.
+enum class Edge { Left, Right, Bottom, Top };
+
+bool insideEdge(const Point& p, Edge edge, const ClipRect& box) {
+    switch (edge) {
+        case Edge::Left:   return p.x >= box.xmin;
+        case Edge::Right:  return p.x <= box.xmax;
+        case Edge::Bottom: return p.y >= box.ymin;
+        case Edge::Top:    return p.y <= box.ymax;
+    }
+    return false;
+}
+
+Point intersectEdge(const Point& a, const Point& b, Edge edge, const ClipRect& box) {
+    if (edge == Edge::Left || edge == Edge::Right) {
+        const double x = edge == Edge::Left ? box.xmin : box.xmax;
+        return {x, a.y + (b.y - a.y) * (x - a.x) / (b.x - a.x)};
+    }
+    const double y = edge == Edge::Bottom ? box.ymin : box.ymax;
+    return {a.x + (b.x - a.x) * (y - a.y) / (b.y - a.y), y};
+}
+} // namespace
+
+Polygon clipPolygon(const Polygon& poly, const ClipRect& box) {
+    Polygon result = poly;
+    for (Edge edge : {Edge::Left, Edge::Right, Edge::Bottom, Edge::Top}) {
+        const Polygon input = result;
+        result.clear();
+        // Walk each edge prev -> current of the polygon and apply the four cases:
+        //   in  -> in : keep current
+        //   in  -> out: keep the crossing point
+        //   out -> in : keep the crossing point, then current
+        //   out -> out: keep nothing
+        for (std::size_t i = 0; i < input.size(); ++i) {
+            const Point& current = input[i];
+            const Point& prev = input[(i + input.size() - 1) % input.size()];
+            const bool currentIn = insideEdge(current, edge, box);
+            const bool prevIn = insideEdge(prev, edge, box);
+            if (currentIn) {
+                if (!prevIn) result.push_back(intersectEdge(prev, current, edge, box));
+                result.push_back(current);
+            } else if (prevIn) {
+                result.push_back(intersectEdge(prev, current, edge, box));
+            }
+        }
+        if (result.empty()) break;
+    }
+    return result;
+}
+
+// ---- Ellipses ----------------------------------------------------------
+
+std::vector<Pixel> midpointEllipse(int cx, int cy, int rx, int ry) {
+    rx = std::max(0, rx);
+    ry = std::max(0, ry);
+    if (rx == 0 || ry == 0) return bresenhamLine(cx - rx, cy - ry, cx + rx, cy + ry);
+
+    std::vector<Pixel> points;
+    std::set<std::pair<int, int>> seen;
+    auto plot4 = [&](long long x, long long y) {
+        for (auto [px, py] : {std::pair{cx + x, cy + y}, {cx - x, cy + y},
+                              {cx + x, cy - y}, {cx - x, cy - y}}) {
+            if (seen.insert({int(px), int(py)}).second) points.push_back({int(px), int(py)});
+        }
+    };
+
+    // The ellipse is x^2/rx^2 + y^2/ry^2 = 1. Decision values are multiplied
+    // by 4 so the 0.25 and 0.5 terms of the textbook form stay whole numbers.
+    const long long rx2 = 1LL * rx * rx;
+    const long long ry2 = 1LL * ry * ry;
+    long long x = 0, y = ry;
+    long long dx = 0;            // 2 * ry^2 * x
+    long long dy = 2 * rx2 * y;  // 2 * rx^2 * y
+
+    // Region 1: slope magnitude < 1, so x increases every step.
+    long long p1 = 4 * ry2 - 4 * rx2 * ry + rx2;
+    while (dx < dy) {
+        plot4(x, y);
+        ++x;
+        dx += 2 * ry2;
+        if (p1 < 0) {
+            p1 += 4 * (dx + ry2);
+        } else {
+            --y;
+            dy -= 2 * rx2;
+            p1 += 4 * (dx - dy + ry2);
+        }
+    }
+
+    // Region 2: slope magnitude >= 1, so y decreases every step.
+    long long p2 = ry2 * (2 * x + 1) * (2 * x + 1) + 4 * rx2 * (y - 1) * (y - 1) - 4 * rx2 * ry2;
+    while (y >= 0) {
+        plot4(x, y);
+        --y;
+        dy -= 2 * rx2;
+        if (p2 > 0) {
+            p2 += 4 * (rx2 - dy);
+        } else {
+            ++x;
+            dx += 2 * ry2;
+            p2 += 4 * (dx - dy + rx2);
+        }
+    }
+    return points;
+}
+
+// ---- Curves ------------------------------------------------------------
+
+Point cubicBezier(Point p0, Point p1, Point p2, Point p3, double t) {
+    const double u = 1 - t;
+    // Bernstein weights; they always add up to 1.
+    const double b0 = u * u * u;
+    const double b1 = 3 * u * u * t;
+    const double b2 = 3 * u * t * t;
+    const double b3 = t * t * t;
+    return {b0 * p0.x + b1 * p1.x + b2 * p2.x + b3 * p3.x,
+            b0 * p0.y + b1 * p1.y + b2 * p2.y + b3 * p3.y};
+}
+
+std::vector<Point> bezierPoints(Point p0, Point p1, Point p2, Point p3, int segments) {
+    segments = std::max(1, segments);
+    std::vector<Point> points;
+    for (int i = 0; i <= segments; ++i) {
+        points.push_back(cubicBezier(p0, p1, p2, p3, double(i) / segments));
+    }
+    return points;
+}
+
+// Catmull–Rom in matrix form with tension 0.5:
+//   C(t) = 0.5 * [ 2 P1 + (-P0 + P2) t + (2 P0 - 5 P1 + 4 P2 - P3) t^2
+//                  + (-P0 + 3 P1 - 3 P2 + P3) t^3 ]
+Point catmullRom(Point p0, Point p1, Point p2, Point p3, double t) {
+    const double t2 = t * t;
+    const double t3 = t2 * t;
+    auto axis = [&](double a, double b, double c, double d) {
+        return 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 +
+                      (-a + 3 * b - 3 * c + d) * t3);
+    };
+    return {axis(p0.x, p1.x, p2.x, p3.x), axis(p0.y, p1.y, p2.y, p3.y)};
+}
+
+std::vector<Point> catmullRomSpline(const std::vector<Point>& control, int segmentsPerSpan) {
+    if (control.size() < 2) return control;
+    segmentsPerSpan = std::max(1, segmentsPerSpan);
+    std::vector<Point> points;
+    const std::size_t n = control.size();
+    for (std::size_t i = 0; i + 1 < n; ++i) {
+        const Point& p0 = control[i == 0 ? 0 : i - 1];
+        const Point& p3 = control[i + 2 < n ? i + 2 : n - 1];
+        // Each span starts at control[i]; the final point is added after the loop.
+        for (int s = 0; s < segmentsPerSpan; ++s) {
+            points.push_back(catmullRom(p0, control[i], control[i + 1], p3, double(s) / segmentsPerSpan));
+        }
+    }
+    points.push_back(control.back());
+    return points;
+}
+
+std::vector<Pixel> polylinePixels(const std::vector<Point>& points) {
+    std::vector<Pixel> pixels;
+    for (std::size_t i = 0; i + 1 < points.size(); ++i) {
+        const auto seg = bresenhamLine(int(std::lround(points[i].x)), int(std::lround(points[i].y)),
+                                       int(std::lround(points[i + 1].x)), int(std::lround(points[i + 1].y)));
+        pixels.insert(pixels.end(), seg.begin(), seg.end());
+    }
+    return pixels;
+}
+
 } // namespace smartflow::graphics
