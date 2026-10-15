@@ -157,6 +157,55 @@ void renderCircles(const std::string& dir) {
     c.saveBmp(dir + "/03-midpoint-circle.bmp", SCALE);
 }
 
+// A car seen from above, pointing along +x, centred on the origin.
+const Polygon CAR{{-11, -6}, {7, -6}, {11, -3}, {11, 3}, {7, 6}, {-11, 6}};
+
+// Places the car: rotate about its own centre, then move it to (x, y).
+Polygon placeCar(double x, double y, double heading) {
+    return translate(rotate(CAR, heading, {0, 0}), x, y);
+}
+
+// An L-shaped (concave) building footprint.
+const Polygon BUILDING{{0, 0}, {50, 0}, {50, 20}, {25, 20}, {25, 45}, {0, 45}};
+
+// Image 4 — Polygon representation and transformations: a car body
+// translated and rotated through a left turn, and a building scaled.
+void renderPolygons(const std::string& dir) {
+    Canvas c(W, H, WHITE);
+    const double pi = std::acos(-1.0);
+
+    // Road edges for context.
+    line(c, 0, 120, 170, 120, GREY);   line(c, 230, 120, W - 1, 120, GREY);
+    line(c, 0, 180, 170, 180, GREY);   line(c, 230, 180, W - 1, 180, GREY);
+    line(c, 170, 180, 170, H - 1, GREY);   line(c, 230, 180, 230, H - 1, GREY);
+    line(c, 170, 0, 170, 120, GREY);   line(c, 230, 0, 230, 120, GREY);
+
+    // The original car at the origin would be off-screen; show it at a reference spot.
+    c.plot(polygonOutline(translate(CAR, 40, 60)), ASPHALT);
+
+    // Left turn (left-hand traffic): eastbound in the upper lane, turning north.
+    // Each copy is the same polygon, rotated to the path's heading and translated onto it.
+    c.plot(polygonOutline(placeCar(80, 135, 0)), BLUE);
+    for (int k = 0; k <= 4; ++k) {
+        const double a = k * pi / 8;                       // 0 to 90 degrees along the arc
+        const double x = 130 + 55 * std::sin(a);
+        const double y = 60 + 75 * std::cos(a);
+        const double heading = std::atan2(-75 * std::sin(a), 55 * std::cos(a));
+        c.plot(polygonOutline(placeCar(x, y, heading)), BLUE);
+    }
+
+    // Scaling: the same footprint at 60%, 100% and 140% about its corner.
+    for (double s : {0.6, 1.0, 1.4}) {
+        c.plot(polygonOutline(translate(scale(BUILDING, s, s, {0, 0}), 260, 195)), GREEN);
+    }
+    // And a building rotated by 15 degrees about its centre.
+    const Polygon placed = translate(BUILDING, 280, 30);
+    c.plot(polygonOutline(rotate(placed, pi / 12, vertexCentre(placed))), RED);
+    c.plot(polygonOutline(placed), GREY);
+
+    c.saveBmp(dir + "/04-polygon-transformations.bmp", SCALE);
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -166,6 +215,7 @@ int main(int argc, char** argv) {
         renderLines(dir);
         renderLineClipping(dir);
         renderCircles(dir);
+        renderPolygons(dir);
     } catch (const std::exception& e) {
         std::cerr << "Render failed: " << e.what() << '\n';
         return 1;

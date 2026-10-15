@@ -44,4 +44,30 @@ struct Segment {
                                               double x1, double y1,
                                               const ClipRect& box);
 
+// ---- Polygons ----------------------------------------------------------
+
+// A point in continuous coordinates.
+struct Point {
+    double x;
+    double y;
+};
+
+// A polygon is its vertices in order; the last vertex joins back to the first.
+using Polygon = std::vector<Point>;
+
+// Geometric transformations. Rotation and scaling are about `pivot`.
+// Angles are in radians; with y pointing down, a positive angle turns clockwise on screen.
+[[nodiscard]] Polygon translate(const Polygon& poly, double dx, double dy);
+[[nodiscard]] Polygon rotate(const Polygon& poly, double angle, Point pivot);
+[[nodiscard]] Polygon scale(const Polygon& poly, double sx, double sy, Point pivot);
+
+// Shoelace formula. The sign gives the vertex order; the magnitude is the area.
+[[nodiscard]] double signedArea(const Polygon& poly);
+
+// Average of the vertices; a simple centre used as a rotation pivot.
+[[nodiscard]] Point vertexCentre(const Polygon& poly);
+
+// Outline pixels: a Bresenham line along every edge, including the closing edge.
+[[nodiscard]] std::vector<Pixel> polygonOutline(const Polygon& poly);
+
 } // namespace smartflow::graphics

@@ -114,4 +114,65 @@ std::optional<Segment> clipLine(double x0, double y0, double x1, double y1,
     throw std::runtime_error("Line clipping did not converge.");
 }
 
+// ---- Polygons ----------------------------------------------------------
+
+Polygon translate(const Polygon& poly, double dx, double dy) {
+    Polygon out;
+    for (const auto& p : poly) out.push_back({p.x + dx, p.y + dy});
+    return out;
+}
+
+// Rotation about a pivot: move the pivot to the origin, apply
+//   x' = x cos(a) - y sin(a),   y' = x sin(a) + y cos(a),
+// then move back.
+Polygon rotate(const Polygon& poly, double angle, Point pivot) {
+    const double c = std::cos(angle);
+    const double s = std::sin(angle);
+    Polygon out;
+    for (const auto& p : poly) {
+        const double x = p.x - pivot.x;
+        const double y = p.y - pivot.y;
+        out.push_back({pivot.x + x * c - y * s, pivot.y + x * s + y * c});
+    }
+    return out;
+}
+
+Polygon scale(const Polygon& poly, double sx, double sy, Point pivot) {
+    Polygon out;
+    for (const auto& p : poly) {
+        out.push_back({pivot.x + (p.x - pivot.x) * sx, pivot.y + (p.y - pivot.y) * sy});
+    }
+    return out;
+}
+
+// Shoelace: area = 1/2 * sum(x_i * y_{i+1} - x_{i+1} * y_i).
+double signedArea(const Polygon& poly) {
+    double sum = 0;
+    for (std::size_t i = 0; i < poly.size(); ++i) {
+        const Point& a = poly[i];
+        const Point& b = poly[(i + 1) % poly.size()];
+        sum += a.x * b.y - b.x * a.y;
+    }
+    return sum / 2;
+}
+
+Point vertexCentre(const Polygon& poly) {
+    Point c{0, 0};
+    if (poly.empty()) return c;
+    for (const auto& p : poly) { c.x += p.x; c.y += p.y; }
+    return {c.x / poly.size(), c.y / poly.size()};
+}
+
+std::vector<Pixel> polygonOutline(const Polygon& poly) {
+    std::vector<Pixel> pixels;
+    for (std::size_t i = 0; i < poly.size(); ++i) {
+        const Point& a = poly[i];
+        const Point& b = poly[(i + 1) % poly.size()];
+        const auto edge = bresenhamLine(int(std::lround(a.x)), int(std::lround(a.y)),
+                                        int(std::lround(b.x)), int(std::lround(b.y)));
+        pixels.insert(pixels.end(), edge.begin(), edge.end());
+    }
+    return pixels;
+}
+
 } // namespace smartflow::graphics

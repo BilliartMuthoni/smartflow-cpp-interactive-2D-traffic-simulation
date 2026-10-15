@@ -100,10 +100,54 @@ void testCohenSutherland() {
     std::cout << "Cohen-Sutherland clipping: all tests passed\n";
 }
 
+bool samePoint(const g::Point& p, double x, double y) { return near(p.x, x) && near(p.y, y); }
+
+void testPolygonTransforms() {
+    const g::Polygon rect{{0, 0}, {4, 0}, {4, 3}, {0, 3}};
+
+    // 1. Shoelace area of a 4 x 3 rectangle is 12; reversing the order flips the sign
+    assert(near(g::signedArea(rect), 12));
+    const g::Polygon reversed{{0, 3}, {4, 3}, {4, 0}, {0, 0}};
+    assert(near(g::signedArea(reversed), -12));
+
+    // 2. Translation moves every vertex and keeps the area
+    auto moved = g::translate(rect, 10, -2);
+    assert(samePoint(moved[0], 10, -2) && samePoint(moved[2], 14, 1));
+    assert(near(g::signedArea(moved), 12));
+
+    // 3. Rotating 90 degrees about the origin maps (4, 0) to (0, 4); area is kept
+    const double quarter = std::acos(-1.0) / 2;
+    auto turned = g::rotate(rect, quarter, {0, 0});
+    assert(samePoint(turned[1], 0, 4));
+    assert(near(g::signedArea(turned), 12));
+
+    // 4. Rotating about the centre keeps the centre fixed
+    auto centre = g::vertexCentre(rect);
+    assert(samePoint(centre, 2, 1.5));
+    auto spun = g::rotate(rect, 0.7, centre);
+    assert(samePoint(g::vertexCentre(spun), 2, 1.5));
+
+    // 5. Scaling by (2, 3) multiplies the area by 6
+    auto bigger = g::scale(rect, 2, 3, {0, 0});
+    assert(samePoint(bigger[2], 8, 9));
+    assert(near(g::signedArea(bigger), 72));
+
+    // 6. The outline is closed: every vertex is on it
+    auto outline = g::polygonOutline(rect);
+    for (const auto& v : rect) {
+        bool found = false;
+        for (const auto& p : outline) found = found || (p.x == int(v.x) && p.y == int(v.y));
+        assert(found);
+    }
+
+    std::cout << "Polygon transformations: all tests passed\n";
+}
+
 int main() {
     testBresenham();
     testMidpointCircle();
     testCohenSutherland();
+    testPolygonTransforms();
     std::cout << "All graphics tests passed\n";
     return 0;
 }
