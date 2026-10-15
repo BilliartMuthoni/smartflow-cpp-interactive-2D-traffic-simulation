@@ -28,4 +28,8 @@ Write-Output "Compiler: $Compiler"
 Write-Output 'Building graphics tests'
 Invoke-Checked $Compiler ($common + @("$projectRoot/src/graphics.cpp", "$projectRoot/tests/graphics_test.cpp", '-o', "$buildDir/graphics_test.exe"))
 Invoke-Checked "$buildDir/graphics_test.exe" @()
+
+Write-Output 'Building renderer'
+Invoke-Checked $Compiler ($common + @("$projectRoot/src/graphics.cpp", "$projectRoot/src/canvas.cpp", "$projectRoot/src/render.cpp", '-o', "$buildDir/render.exe"))
+Invoke-Checked "$buildDir/render.exe" @("$projectRoot/output")
 Write-Output 'Build complete.'
