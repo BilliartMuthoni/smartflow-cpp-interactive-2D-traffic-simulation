@@ -219,6 +219,48 @@ void testPolygonClipping() {
     std::cout << "Sutherland-Hodgman clipping: all tests passed\n";
 }
 
+void testMidpointEllipse() {
+    for (auto [rx, ry] : {std::pair{8, 4}, {4, 8}, {20, 7}, {3, 3}, {30, 12}}) {
+        auto e = g::midpointEllipse(0, 0, rx, ry);
+        std::set<std::pair<int, int>> pts;
+        for (const auto& p : e) pts.insert({p.x, p.y});
+
+        // 1. No duplicates
+        assert(pts.size() == e.size());
+
+        // 2. The four extreme points are on the ellipse
+        assert(pts.count({rx, 0}) && pts.count({-rx, 0}) && pts.count({0, ry}) && pts.count({0, -ry}));
+
+        // 3. Four-way symmetry
+        for (auto [x, y] : pts) {
+            assert(pts.count({-x, y}) && pts.count({x, -y}) && pts.count({-x, -y}));
+        }
+
+        // 4. Every pixel is within one pixel of the true ellipse
+        for (auto [x, y] : pts) {
+            const double r = std::sqrt(double(x) * x / (rx * rx) + double(y) * y / (ry * ry));
+            assert(std::abs(r - 1) * std::min(rx, ry) <= 1.0);
+        }
+
+        // 5. Connected: every pixel has a neighbouring pixel
+        for (auto [x, y] : pts) {
+            bool neighbour = false;
+            for (int ox = -1; ox <= 1; ++ox)
+                for (int oy = -1; oy <= 1; ++oy)
+                    if ((ox || oy) && pts.count({x + ox, y + oy})) neighbour = true;
+            assert(neighbour);
+        }
+    }
+
+    // 6. Centre offset and degenerate radii
+    auto shifted = g::midpointEllipse(10, -5, 6, 3);
+    assert(contains(shifted, 16, -5) && contains(shifted, 10, -8));
+    assert(g::midpointEllipse(0, 0, 5, 0).size() == 11);   // flat: a line of 11 pixels
+    assert(g::midpointEllipse(0, 0, 0, 0).size() == 1);    // a single point
+
+    std::cout << "Midpoint ellipse: all tests passed\n";
+}
+
 int main() {
     testBresenham();
     testMidpointCircle();
@@ -226,6 +268,7 @@ int main() {
     testPolygonTransforms();
     testScanlineFill();
     testPolygonClipping();
+    testMidpointEllipse();
     std::cout << "All graphics tests passed\n";
     return 0;
 }

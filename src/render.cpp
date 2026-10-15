@@ -294,6 +294,62 @@ void renderPolygonClipping(const std::string& dir) {
     c.saveBmp(dir + "/06-sutherland-hodgman-clipping.bmp", SCALE);
 }
 
+// Filled shape from a closed ring of pixels: join the leftmost and rightmost
+// ring pixels on every row (works for convex rings such as ellipses).
+void fillRing(Canvas& c, const std::vector<Pixel>& ring, Color color) {
+    if (ring.empty()) return;
+    int top = ring[0].y, bottom = ring[0].y;
+    for (const auto& p : ring) { top = std::min(top, p.y); bottom = std::max(bottom, p.y); }
+    std::vector<int> left(bottom - top + 1, 1 << 30), right(bottom - top + 1, -(1 << 30));
+    for (const auto& p : ring) {
+        left[p.y - top] = std::min(left[p.y - top], p.x);
+        right[p.y - top] = std::max(right[p.y - top], p.x);
+    }
+    for (int y = top; y <= bottom; ++y) line(c, left[y - top], y, right[y - top], y, color);
+}
+
+constexpr Color LEAF{60, 140, 70};
+constexpr Color LEAF_DARK{35, 95, 45};
+constexpr Color SHADOW{150, 170, 140};
+
+// A tree seen from above: a shadow ellipse, then the canopy ellipse and its outline.
+void tree(Canvas& c, int x, int y, int rx, int ry) {
+    fillRing(c, midpointEllipse(x + 3, y + 4, rx, ry), SHADOW);
+    const auto canopy = midpointEllipse(x, y, rx, ry);
+    fillRing(c, canopy, LEAF);
+    c.plot(canopy, LEAF_DARK);
+}
+
+// Image 7 — Midpoint ellipse: a roundabout island and tree canopies, plus a set
+// of ellipses with different radii showing the two-region algorithm.
+void renderEllipses(const std::string& dir) {
+    Canvas c(W, H, GRASS);
+
+    // Roads meeting at a roundabout.
+    fill(c, rectangle(0, 120, W, 180), ASPHALT);
+    fill(c, rectangle(170, 0, 230, H), ASPHALT);
+    fillRing(c, midpointEllipse(200, 150, 70, 52), ASPHALT);
+
+    // Central island: a filled ellipse with a white kerb and an inner flower bed.
+    const auto island = midpointEllipse(200, 150, 38, 26);
+    fillRing(c, island, GRASS);
+    c.plot(island, WHITE);
+    fillRing(c, midpointEllipse(200, 150, 14, 9), YELLOW);
+    c.plot(midpointEllipse(200, 150, 54, 39), WHITE);     // lane divider ring
+
+    // Trees of different sizes and proportions in the corners.
+    tree(c, 40, 40, 18, 12);   tree(c, 95, 60, 12, 12);   tree(c, 60, 92, 9, 14);
+    tree(c, 300, 45, 22, 14);  tree(c, 360, 80, 14, 10);
+    tree(c, 330, 240, 16, 22);
+
+    // Ellipse family: the same algorithm for wide, round and tall shapes.
+    for (int k = 0; k < 5; ++k) {
+        c.plot(midpointEllipse(80, 240, 10 + 9 * k, 40 - 7 * k), BLUE);
+    }
+
+    c.saveBmp(dir + "/07-midpoint-ellipse.bmp", SCALE);
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -306,6 +362,7 @@ int main(int argc, char** argv) {
         renderPolygons(dir);
         renderFill(dir);
         renderPolygonClipping(dir);
+        renderEllipses(dir);
     } catch (const std::exception& e) {
         std::cerr << "Render failed: " << e.what() << '\n';
         return 1;

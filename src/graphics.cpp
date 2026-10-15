@@ -263,4 +263,60 @@ Polygon clipPolygon(const Polygon& poly, const ClipRect& box) {
     return result;
 }
 
+// ---- Ellipses ----------------------------------------------------------
+
+std::vector<Pixel> midpointEllipse(int cx, int cy, int rx, int ry) {
+    rx = std::max(0, rx);
+    ry = std::max(0, ry);
+    if (rx == 0 || ry == 0) return bresenhamLine(cx - rx, cy - ry, cx + rx, cy + ry);
+
+    std::vector<Pixel> points;
+    std::set<std::pair<int, int>> seen;
+    auto plot4 = [&](long long x, long long y) {
+        for (auto [px, py] : {std::pair{cx + x, cy + y}, {cx - x, cy + y},
+                              {cx + x, cy - y}, {cx - x, cy - y}}) {
+            if (seen.insert({int(px), int(py)}).second) points.push_back({int(px), int(py)});
+        }
+    };
+
+    // The ellipse is x^2/rx^2 + y^2/ry^2 = 1. Decision values are multiplied
+    // by 4 so the 0.25 and 0.5 terms of the textbook form stay whole numbers.
+    const long long rx2 = 1LL * rx * rx;
+    const long long ry2 = 1LL * ry * ry;
+    long long x = 0, y = ry;
+    long long dx = 0;            // 2 * ry^2 * x
+    long long dy = 2 * rx2 * y;  // 2 * rx^2 * y
+
+    // Region 1: slope magnitude < 1, so x increases every step.
+    long long p1 = 4 * ry2 - 4 * rx2 * ry + rx2;
+    while (dx < dy) {
+        plot4(x, y);
+        ++x;
+        dx += 2 * ry2;
+        if (p1 < 0) {
+            p1 += 4 * (dx + ry2);
+        } else {
+            --y;
+            dy -= 2 * rx2;
+            p1 += 4 * (dx - dy + ry2);
+        }
+    }
+
+    // Region 2: slope magnitude >= 1, so y decreases every step.
+    long long p2 = ry2 * (2 * x + 1) * (2 * x + 1) + 4 * rx2 * (y - 1) * (y - 1) - 4 * rx2 * ry2;
+    while (y >= 0) {
+        plot4(x, y);
+        --y;
+        dy -= 2 * rx2;
+        if (p2 > 0) {
+            p2 += 4 * (rx2 - dy);
+        } else {
+            ++x;
+            dx += 2 * ry2;
+            p2 += 4 * (dx - dy + rx2);
+        }
+    }
+    return points;
+}
+
 } // namespace smartflow::graphics

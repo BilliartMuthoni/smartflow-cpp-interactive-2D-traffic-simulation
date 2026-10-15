@@ -80,4 +80,13 @@ using Polygon = std::vector<Point>;
 // part of the polygon inside the window (empty if none of it is visible).
 [[nodiscard]] Polygon clipPolygon(const Polygon& poly, const ClipRect& box);
 
+// ---- Ellipses ----------------------------------------------------------
+
+// Midpoint ellipse algorithm with horizontal radius rx and vertical radius ry.
+// Region 1 steps in x while the slope is shallow, region 2 steps in y once it
+// is steep; each computed point is mirrored into all four quadrants.
+// Produces unique pixels. Negative radii are treated as zero; a zero radius
+// gives a straight line.
+[[nodiscard]] std::vector<Pixel> midpointEllipse(int cx, int cy, int rx, int ry);
+
 } // namespace smartflow::graphics
