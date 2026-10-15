@@ -261,6 +261,44 @@ void testMidpointEllipse() {
     std::cout << "Midpoint ellipse: all tests passed\n";
 }
 
+void testCurves() {
+    const g::Point p0{0, 0}, p1{0, 10}, p2{10, 10}, p3{10, 0};
+
+    // 1. Bézier starts at P0 and ends at P3
+    assert(samePoint(g::cubicBezier(p0, p1, p2, p3, 0), 0, 0));
+    assert(samePoint(g::cubicBezier(p0, p1, p2, p3, 1), 10, 0));
+
+    // 2. Midpoint by hand: weights 1/8, 3/8, 3/8, 1/8 give (5, 7.5)
+    assert(samePoint(g::cubicBezier(p0, p1, p2, p3, 0.5), 5, 7.5));
+
+    // 3. Collinear control points give a straight line
+    for (const auto& p : g::bezierPoints({0, 0}, {3, 3}, {6, 6}, {9, 9}, 10)) assert(near(p.x, p.y));
+
+    // 4. bezierPoints returns segments + 1 samples from P0 to P3
+    auto samples = g::bezierPoints(p0, p1, p2, p3, 16);
+    assert(samples.size() == 17 && samePoint(samples.back(), 10, 0));
+
+    // 5. Catmull–Rom passes through P1 at t = 0 and P2 at t = 1
+    assert(samePoint(g::catmullRom(p0, p1, p2, p3, 0), 0, 10));
+    assert(samePoint(g::catmullRom(p0, p1, p2, p3, 1), 10, 10));
+
+    // 6. The spline passes through every control point, with the expected sample count
+    const std::vector<g::Point> control{{0, 0}, {10, 5}, {20, -3}, {30, 4}, {40, 0}};
+    auto spline = g::catmullRomSpline(control, 8);
+    assert(spline.size() == (control.size() - 1) * 8 + 1);
+    for (std::size_t i = 0; i < control.size(); ++i) {
+        assert(samePoint(spline[i * 8], control[i].x, control[i].y));
+    }
+
+    // 7. The drawn polyline is connected
+    auto pixels = g::polylinePixels(spline);
+    for (std::size_t i = 1; i < pixels.size(); ++i) {
+        assert(std::abs(pixels[i].x - pixels[i - 1].x) <= 1 && std::abs(pixels[i].y - pixels[i - 1].y) <= 1);
+    }
+
+    std::cout << "Bezier curves and Catmull-Rom splines: all tests passed\n";
+}
+
 int main() {
     testBresenham();
     testMidpointCircle();
@@ -269,6 +307,7 @@ int main() {
     testScanlineFill();
     testPolygonClipping();
     testMidpointEllipse();
+    testCurves();
     std::cout << "All graphics tests passed\n";
     return 0;
 }

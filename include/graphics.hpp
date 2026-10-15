@@ -89,4 +89,25 @@ using Polygon = std::vector<Point>;
 // gives a straight line.
 [[nodiscard]] std::vector<Pixel> midpointEllipse(int cx, int cy, int rx, int ry);
 
+// ---- Curves ------------------------------------------------------------
+
+// Cubic Bézier curve at parameter t in [0, 1]:
+//   B(t) = (1-t)^3 P0 + 3(1-t)^2 t P1 + 3(1-t) t^2 P2 + t^3 P3
+// The curve starts at P0, ends at P3, and is pulled towards P1 and P2.
+[[nodiscard]] Point cubicBezier(Point p0, Point p1, Point p2, Point p3, double t);
+
+// `segments + 1` evenly spaced samples of a cubic Bézier curve, from P0 to P3.
+[[nodiscard]] std::vector<Point> bezierPoints(Point p0, Point p1, Point p2, Point p3, int segments);
+
+// Uniform Catmull–Rom spline segment between P1 (t = 0) and P2 (t = 1);
+// P0 and P3 set the tangents. Unlike Bézier, it passes through its control points.
+[[nodiscard]] Point catmullRom(Point p0, Point p1, Point p2, Point p3, double t);
+
+// A smooth curve through every control point, `segmentsPerSpan` samples per span.
+// The first and last points are repeated so the curve reaches both ends.
+[[nodiscard]] std::vector<Point> catmullRomSpline(const std::vector<Point>& control, int segmentsPerSpan);
+
+// Pixels of a polyline: Bresenham lines between consecutive points.
+[[nodiscard]] std::vector<Pixel> polylinePixels(const std::vector<Point>& points);
+
 } // namespace smartflow::graphics

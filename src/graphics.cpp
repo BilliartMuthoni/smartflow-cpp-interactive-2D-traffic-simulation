@@ -319,4 +319,66 @@ std::vector<Pixel> midpointEllipse(int cx, int cy, int rx, int ry) {
     return points;
 }
 
+// ---- Curves ------------------------------------------------------------
+
+Point cubicBezier(Point p0, Point p1, Point p2, Point p3, double t) {
+    const double u = 1 - t;
+    // Bernstein weights; they always add up to 1.
+    const double b0 = u * u * u;
+    const double b1 = 3 * u * u * t;
+    const double b2 = 3 * u * t * t;
+    const double b3 = t * t * t;
+    return {b0 * p0.x + b1 * p1.x + b2 * p2.x + b3 * p3.x,
+            b0 * p0.y + b1 * p1.y + b2 * p2.y + b3 * p3.y};
+}
+
+std::vector<Point> bezierPoints(Point p0, Point p1, Point p2, Point p3, int segments) {
+    segments = std::max(1, segments);
+    std::vector<Point> points;
+    for (int i = 0; i <= segments; ++i) {
+        points.push_back(cubicBezier(p0, p1, p2, p3, double(i) / segments));
+    }
+    return points;
+}
+
+// Catmull–Rom in matrix form with tension 0.5:
+//   C(t) = 0.5 * [ 2 P1 + (-P0 + P2) t + (2 P0 - 5 P1 + 4 P2 - P3) t^2
+//                  + (-P0 + 3 P1 - 3 P2 + P3) t^3 ]
+Point catmullRom(Point p0, Point p1, Point p2, Point p3, double t) {
+    const double t2 = t * t;
+    const double t3 = t2 * t;
+    auto axis = [&](double a, double b, double c, double d) {
+        return 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 +
+                      (-a + 3 * b - 3 * c + d) * t3);
+    };
+    return {axis(p0.x, p1.x, p2.x, p3.x), axis(p0.y, p1.y, p2.y, p3.y)};
+}
+
+std::vector<Point> catmullRomSpline(const std::vector<Point>& control, int segmentsPerSpan) {
+    if (control.size() < 2) return control;
+    segmentsPerSpan = std::max(1, segmentsPerSpan);
+    std::vector<Point> points;
+    const std::size_t n = control.size();
+    for (std::size_t i = 0; i + 1 < n; ++i) {
+        const Point& p0 = control[i == 0 ? 0 : i - 1];
+        const Point& p3 = control[i + 2 < n ? i + 2 : n - 1];
+        // Each span starts at control[i]; the final point is added after the loop.
+        for (int s = 0; s < segmentsPerSpan; ++s) {
+            points.push_back(catmullRom(p0, control[i], control[i + 1], p3, double(s) / segmentsPerSpan));
+        }
+    }
+    points.push_back(control.back());
+    return points;
+}
+
+std::vector<Pixel> polylinePixels(const std::vector<Point>& points) {
+    std::vector<Pixel> pixels;
+    for (std::size_t i = 0; i + 1 < points.size(); ++i) {
+        const auto seg = bresenhamLine(int(std::lround(points[i].x)), int(std::lround(points[i].y)),
+                                       int(std::lround(points[i + 1].x)), int(std::lround(points[i + 1].y)));
+        pixels.insert(pixels.end(), seg.begin(), seg.end());
+    }
+    return pixels;
+}
+
 } // namespace smartflow::graphics

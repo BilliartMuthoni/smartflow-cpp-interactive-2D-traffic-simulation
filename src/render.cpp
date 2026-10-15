@@ -350,6 +350,58 @@ void renderEllipses(const std::string& dir) {
     c.saveBmp(dir + "/07-midpoint-ellipse.bmp", SCALE);
 }
 
+// A turning route through the junction, as the four control points of a cubic Bézier.
+struct Route {
+    Point p0, p1, p2, p3;
+    Color color;
+};
+
+// Left-hand traffic lanes: eastbound y = 135, westbound y = 165,
+// southbound x = 215, northbound x = 185.
+const Route ROUTES[] = {
+    {{110, 135}, {170, 135}, {185, 120}, {185, 70},  {30, 110, 200}},   // west -> north (left turn)
+    {{110, 135}, {205, 135}, {215, 150}, {215, 230}, {210, 60, 50}},    // west -> south (right turn)
+    {{215, 70},  {215, 120}, {225, 135}, {290, 135}, {40, 150, 90}},    // north -> east (left turn)
+    {{290, 165}, {200, 165}, {185, 150}, {185, 70},  {150, 80, 170}},   // east -> north (right turn)
+};
+
+// Image 8 — Curves: cubic Bézier turning routes through the junction, and a
+// Catmull–Rom spline for a winding side road through its control points.
+void renderCurves(const std::string& dir) {
+    Canvas c(W, H, GRASS);
+    fill(c, rectangle(0, 120, W, 180), ASPHALT);
+    fill(c, rectangle(170, 0, 230, H), ASPHALT);
+
+    // Bézier routes. For the first route, also show the control polygon:
+    // the curve starts at P0 and ends at P3 but only bends towards P1 and P2.
+    for (const auto& r : ROUTES) c.plot(polylinePixels(bezierPoints(r.p0, r.p1, r.p2, r.p3, 40)), r.color);
+    const Route& shown = ROUTES[0];
+    const std::vector<Point> hull{shown.p0, shown.p1, shown.p2, shown.p3};
+    for (std::size_t i = 0; i + 1 < hull.size(); ++i) {
+        dashedLine(c, int(hull[i].x), int(hull[i].y), int(hull[i + 1].x), int(hull[i + 1].y), 3, 3, WHITE);
+    }
+    for (const auto& p : hull) c.plot(midpointCircle(int(p.x), int(p.y), 3), YELLOW);
+
+    // Catmull–Rom side road in the bottom-left corner: two kerb lines offset
+    // from a centre line that passes through every control point (red circles).
+    const std::vector<Point> control{{0, 285}, {40, 225}, {80, 262}, {125, 205}, {165, 240}};
+    const auto centre = catmullRomSpline(control, 20);
+    for (int offset = -6; offset <= 6; ++offset) {
+        c.plot(polylinePixels(translate(centre, 0, offset)), ASPHALT);
+    }
+    c.plot(polylinePixels(centre), YELLOW);
+    for (const auto& p : control) {
+        disc(c, int(p.x), int(p.y), 3, RED);
+    }
+
+    // A second spline: a footpath through the top-right corner.
+    const std::vector<Point> path{{240, 20}, {280, 60}, {330, 30}, {370, 80}, {395, 50}};
+    c.plot(polylinePixels(catmullRomSpline(path, 20)), ROOF_A);
+    for (const auto& p : path) c.plot(midpointCircle(int(p.x), int(p.y), 3), RED);
+
+    c.saveBmp(dir + "/08-bezier-and-spline-curves.bmp", SCALE);
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -363,6 +415,7 @@ int main(int argc, char** argv) {
         renderFill(dir);
         renderPolygonClipping(dir);
         renderEllipses(dir);
+        renderCurves(dir);
     } catch (const std::exception& e) {
         std::cerr << "Render failed: " << e.what() << '\n';
         return 1;
