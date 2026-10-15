@@ -1,0 +1,8 @@
+build/
+bin/
+tmp/
+output/
+*.exe
+*.o
+*.zip
+*.log
