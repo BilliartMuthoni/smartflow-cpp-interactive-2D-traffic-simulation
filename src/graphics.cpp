@@ -211,4 +211,56 @@ std::vector<Pixel> scanlineFill(const Polygon& poly) {
     return pixels;
 }
 
+namespace {
+// One window edge, written as a test "is this point inside?" and the
+// intersection of segment a-b with the edge's line.
+enum class Edge { Left, Right, Bottom, Top };
+
+bool insideEdge(const Point& p, Edge edge, const ClipRect& box) {
+    switch (edge) {
+        case Edge::Left:   return p.x >= box.xmin;
+        case Edge::Right:  return p.x <= box.xmax;
+        case Edge::Bottom: return p.y >= box.ymin;
+        case Edge::Top:    return p.y <= box.ymax;
+    }
+    return false;
+}
+
+Point intersectEdge(const Point& a, const Point& b, Edge edge, const ClipRect& box) {
+    if (edge == Edge::Left || edge == Edge::Right) {
+        const double x = edge == Edge::Left ? box.xmin : box.xmax;
+        return {x, a.y + (b.y - a.y) * (x - a.x) / (b.x - a.x)};
+    }
+    const double y = edge == Edge::Bottom ? box.ymin : box.ymax;
+    return {a.x + (b.x - a.x) * (y - a.y) / (b.y - a.y), y};
+}
+} // namespace
+
+Polygon clipPolygon(const Polygon& poly, const ClipRect& box) {
+    Polygon result = poly;
+    for (Edge edge : {Edge::Left, Edge::Right, Edge::Bottom, Edge::Top}) {
+        const Polygon input = result;
+        result.clear();
+        // Walk each edge prev -> current of the polygon and apply the four cases:
+        //   in  -> in : keep current
+        //   in  -> out: keep the crossing point
+        //   out -> in : keep the crossing point, then current
+        //   out -> out: keep nothing
+        for (std::size_t i = 0; i < input.size(); ++i) {
+            const Point& current = input[i];
+            const Point& prev = input[(i + input.size() - 1) % input.size()];
+            const bool currentIn = insideEdge(current, edge, box);
+            const bool prevIn = insideEdge(prev, edge, box);
+            if (currentIn) {
+                if (!prevIn) result.push_back(intersectEdge(prev, current, edge, box));
+                result.push_back(current);
+            } else if (prevIn) {
+                result.push_back(intersectEdge(prev, current, edge, box));
+            }
+        }
+        if (result.empty()) break;
+    }
+    return result;
+}
+
 } // namespace smartflow::graphics

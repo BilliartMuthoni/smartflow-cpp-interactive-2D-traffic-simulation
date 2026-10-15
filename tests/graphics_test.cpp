@@ -184,12 +184,48 @@ void testScanlineFill() {
     std::cout << "Scan-line fill: all tests passed\n";
 }
 
+void testPolygonClipping() {
+    const g::ClipRect window{0, 0, 10, 10};
+
+    // 1. Fully inside: unchanged
+    const g::Polygon inside{{2, 2}, {8, 2}, {8, 8}, {2, 8}};
+    auto kept = g::clipPolygon(inside, window);
+    assert(kept.size() == 4 && near(g::signedArea(kept), 36));
+
+    // 2. Fully outside: nothing left
+    assert(g::clipPolygon({{12, 1}, {15, 1}, {15, 4}}, window).empty());
+
+    // 3. Half outside on the right: a 10 x 4 rectangle keeps its left 6 x 4
+    const g::Polygon overRight{{4, 3}, {14, 3}, {14, 7}, {4, 7}};
+    auto half = g::clipPolygon(overRight, window);
+    assert(near(g::signedArea(half), 24));
+    for (const auto& p : half) assert(p.x >= 0 && p.x <= 10 && p.y >= 0 && p.y <= 10);
+
+    // 4. Larger than the window on every side: the result is the window itself
+    auto all = g::clipPolygon({{-5, -5}, {15, -5}, {15, 15}, {-5, 15}}, window);
+    assert(near(g::signedArea(all), 100));
+
+    // 5. A triangle over the top-right corner: its hypotenuse x + y = 20 passes
+    //    through (10, 10), so the visible part is the square [5,10] x [5,10]
+    const g::Polygon corner{{5, 5}, {15, 5}, {5, 15}};
+    auto cut = g::clipPolygon(corner, window);
+    assert(near(g::signedArea(cut), 25));
+    for (const auto& p : cut) assert(p.x >= 5 && p.x <= 10 && p.y >= 5 && p.y <= 10);
+
+    // 6. Concave L-shape cut by the window keeps the correct area
+    const g::Polygon ell{{-2, 0}, {6, 0}, {6, 2}, {2, 2}, {2, 6}, {-2, 6}};
+    assert(near(g::signedArea(g::clipPolygon(ell, window)), 6 * 2 + 2 * 4));
+
+    std::cout << "Sutherland-Hodgman clipping: all tests passed\n";
+}
+
 int main() {
     testBresenham();
     testMidpointCircle();
     testCohenSutherland();
     testPolygonTransforms();
     testScanlineFill();
+    testPolygonClipping();
     std::cout << "All graphics tests passed\n";
     return 0;
 }

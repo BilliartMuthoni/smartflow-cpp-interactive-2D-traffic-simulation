@@ -75,4 +75,9 @@ using Polygon = std::vector<Point>;
 // Works for concave polygons. A pixel is filled when its centre is inside.
 [[nodiscard]] std::vector<Pixel> scanlineFill(const Polygon& poly);
 
+// Sutherland–Hodgman polygon clipping against a rectangular window.
+// The polygon is clipped against each window edge in turn; the result is the
+// part of the polygon inside the window (empty if none of it is visible).
+[[nodiscard]] Polygon clipPolygon(const Polygon& poly, const ClipRect& box);
+
 } // namespace smartflow::graphics

@@ -261,6 +261,39 @@ void renderFill(const std::string& dir) {
     c.saveBmp(dir + "/05-scanline-fill.bmp", SCALE);
 }
 
+constexpr Color PALE{232, 234, 238};
+
+// Image 6 — Sutherland–Hodgman: the junction viewport (blue) clips every car and
+// building that crosses it. Grey outline = whole polygon, filled = clipped result.
+void renderPolygonClipping(const std::string& dir) {
+    Canvas c(W, H, WHITE);
+    const double pi = std::acos(-1.0);
+    const ClipRect view{90, 60, 310, 240};
+
+    const std::vector<Polygon> shapes = {
+        placeCar(94, 135, 0),              // entering from the left edge
+        placeCar(306, 165, pi),            // entering from the right edge
+        placeCar(185, 64, -pi / 2),        // entering from the top edge
+        placeCar(150, 150, -pi / 5),       // fully inside: unchanged
+        placeCar(40, 220, pi / 4),         // fully outside: removed
+        translate(BUILDING, 60, 190),      // concave building over the bottom-left corner
+        translate(rotate(rectangle(0, 0, 70, 40), pi / 8, {35, 20}), 270, 30),  // over a corner
+        translate(scale(BUILDING, 1.3, 1.3, {0, 0}), 280, 200),               // mostly outside
+    };
+
+    fill(c, rectangle(view.xmin, view.ymin, view.xmax, view.ymax), PALE);
+    int i = 0;
+    for (const auto& shape : shapes) {
+        const Polygon visible = clipPolygon(shape, view);
+        if (!visible.empty()) fill(c, visible, CAR_COLORS[i % 4]);
+        c.plot(polygonOutline(shape), visible.empty() ? RED : GREY);
+        ++i;
+    }
+    rectOutline(c, int(view.xmin), int(view.ymin), int(view.xmax), int(view.ymax), BLUE);
+
+    c.saveBmp(dir + "/06-sutherland-hodgman-clipping.bmp", SCALE);
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -272,6 +305,7 @@ int main(int argc, char** argv) {
         renderCircles(dir);
         renderPolygons(dir);
         renderFill(dir);
+        renderPolygonClipping(dir);
     } catch (const std::exception& e) {
         std::cerr << "Render failed: " << e.what() << '\n';
         return 1;
