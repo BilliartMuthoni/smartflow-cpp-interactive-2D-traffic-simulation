@@ -1,6 +1,7 @@
 // Renders the checkpoint images using only our own algorithms and the BMP canvas.
 // Usage: render [output-folder]   (default: output)
 
+#include <algorithm>
 #include <cmath>
 #include <filesystem>
 #include <iostream>
@@ -108,6 +109,54 @@ void renderLineClipping(const std::string& dir) {
     c.saveBmp(dir + "/02-cohen-sutherland-clipping.bmp", SCALE);
 }
 
+// Filled disc built from the midpoint circle: for each row the circle touches,
+// join its leftmost and rightmost circle pixels with a horizontal span.
+void disc(Canvas& c, int cx, int cy, int r, Color color) {
+    const auto ring = midpointCircle(cx, cy, r);
+    for (int y = cy - r; y <= cy + r; ++y) {
+        int left = cx, right = cx;
+        for (const auto& p : ring) {
+            if (p.y == y) { left = std::min(left, p.x); right = std::max(right, p.x); }
+        }
+        line(c, left, y, right, y, color);
+    }
+}
+
+// One signal head: a housing with red, amber and green lamps. `lit` is 0, 1 or 2.
+void signalHead(Canvas& c, int x, int y, int lit) {
+    constexpr Color HOUSING{40, 40, 45};
+    constexpr Color LAMPS[] = {{225, 45, 40}, {245, 170, 30}, {30, 185, 80}};
+    constexpr Color OFF{110, 110, 115};
+    rectOutline(c, x, y, x + 24, y + 66, HOUSING);
+    for (int i = 0; i < 3; ++i) {
+        const int cy = y + 12 + i * 21;
+        if (i == lit) disc(c, x + 12, cy, 8, LAMPS[i]);
+        c.plot(midpointCircle(x + 12, cy, 8), i == lit ? HOUSING : OFF);
+    }
+}
+
+// Image 3 — Midpoint circle: traffic-light lamps for the four junction approaches,
+// plus concentric circles showing the algorithm at radii from 2 to 42.
+void renderCircles(const std::string& dir) {
+    Canvas c(W, H, WHITE);
+
+    // Concentric circles: every radius produces a closed, symmetric ring.
+    for (int r = 2; r <= 42; r += 5) c.plot(midpointCircle(70, 150, r), BLUE);
+
+    // Four signal heads, one per approach, each showing a different phase.
+    signalHead(c, 170, 40, 0);   // north: red
+    signalHead(c, 230, 40, 1);   // east: amber
+    signalHead(c, 290, 40, 2);   // south: green
+    signalHead(c, 350, 40, 0);   // west: red
+
+    // Large lamp so the stepped pixel pattern of the algorithm is easy to see.
+    c.plot(midpointCircle(260, 210, 60), ASPHALT);
+    c.plot(midpointCircle(260, 210, 20), RED);
+    disc(c, 260, 210, 12, RED);
+
+    c.saveBmp(dir + "/03-midpoint-circle.bmp", SCALE);
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -116,6 +165,7 @@ int main(int argc, char** argv) {
     try {
         renderLines(dir);
         renderLineClipping(dir);
+        renderCircles(dir);
     } catch (const std::exception& e) {
         std::cerr << "Render failed: " << e.what() << '\n';
         return 1;
