@@ -70,4 +70,9 @@ using Polygon = std::vector<Point>;
 // Outline pixels: a Bresenham line along every edge, including the closing edge.
 [[nodiscard]] std::vector<Pixel> polygonOutline(const Polygon& poly);
 
+// Scan-line fill (even-odd rule). For each pixel row, finds where the row
+// crosses the polygon's edges, sorts those crossings, and fills between pairs.
+// Works for concave polygons. A pixel is filled when its centre is inside.
+[[nodiscard]] std::vector<Pixel> scanlineFill(const Polygon& poly);
+
 } // namespace smartflow::graphics

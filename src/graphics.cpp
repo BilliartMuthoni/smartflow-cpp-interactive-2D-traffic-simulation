@@ -175,4 +175,40 @@ std::vector<Pixel> polygonOutline(const Polygon& poly) {
     return pixels;
 }
 
+std::vector<Pixel> scanlineFill(const Polygon& poly) {
+    std::vector<Pixel> pixels;
+    if (poly.size() < 3) return pixels;
+
+    double minY = poly[0].y, maxY = poly[0].y;
+    for (const auto& p : poly) { minY = std::min(minY, p.y); maxY = std::max(maxY, p.y); }
+
+    // Pixel row y is sampled through its centre, y + 0.5.
+    for (int y = int(std::floor(minY)); y <= int(std::ceil(maxY)); ++y) {
+        const double scanY = y + 0.5;
+
+        // 1. Find where this scan line crosses each edge. The half-open test
+        //    (one end <= scanY, the other > scanY) counts a shared vertex once
+        //    and skips horizontal edges.
+        std::vector<double> crossings;
+        for (std::size_t i = 0; i < poly.size(); ++i) {
+            const Point& a = poly[i];
+            const Point& b = poly[(i + 1) % poly.size()];
+            if ((a.y <= scanY) != (b.y <= scanY)) {
+                crossings.push_back(a.x + (scanY - a.y) * (b.x - a.x) / (b.y - a.y));
+            }
+        }
+
+        // 2. Sort the crossings from left to right.
+        std::sort(crossings.begin(), crossings.end());
+
+        // 3. Fill between pairs: inside after the 1st crossing, outside after the 2nd, ...
+        for (std::size_t i = 0; i + 1 < crossings.size(); i += 2) {
+            const int xStart = int(std::ceil(crossings[i] - 0.5));
+            const int xEnd = int(std::floor(crossings[i + 1] - 0.5));
+            for (int x = xStart; x <= xEnd; ++x) pixels.push_back({x, y});
+        }
+    }
+    return pixels;
+}
+
 } // namespace smartflow::graphics

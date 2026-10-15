@@ -143,11 +143,53 @@ void testPolygonTransforms() {
     std::cout << "Polygon transformations: all tests passed\n";
 }
 
+bool contains(const std::vector<g::Pixel>& pixels, int x, int y) {
+    for (const auto& p : pixels) if (p.x == x && p.y == y) return true;
+    return false;
+}
+
+void testScanlineFill() {
+    // 1. A 4 x 3 rectangle covers exactly 12 pixel centres
+    const g::Polygon rect{{0, 0}, {4, 0}, {4, 3}, {0, 3}};
+    auto filled = g::scanlineFill(rect);
+    assert(filled.size() == 12);
+    assert(contains(filled, 0, 0) && contains(filled, 3, 2));
+    assert(!contains(filled, 4, 0) && !contains(filled, 0, 3));
+
+    // 2. Vertex order does not matter
+    const g::Polygon reversed{{0, 3}, {4, 3}, {4, 0}, {0, 0}};
+    assert(g::scanlineFill(reversed).size() == 12);
+
+    // 3. Concave L-shape: the notch stays empty, the arms are filled
+    const g::Polygon ell{{0, 0}, {6, 0}, {6, 2}, {2, 2}, {2, 6}, {0, 6}};
+    auto l = g::scanlineFill(ell);
+    assert(l.size() == 6 * 2 + 2 * 4);         // bottom bar 12 + upright 8
+    assert(contains(l, 5, 1) && contains(l, 1, 5));
+    assert(!contains(l, 4, 4));                // inside the notch
+
+    // 4. No pixel is filled twice
+    std::set<std::pair<int, int>> unique;
+    for (const auto& p : l) unique.insert({p.x, p.y});
+    assert(unique.size() == l.size());
+
+    // 5. Every filled pixel centre of a triangle lies inside it
+    const g::Polygon tri{{0, 0}, {10, 0}, {0, 10}};
+    for (const auto& p : g::scanlineFill(tri)) {
+        assert(p.x >= 0 && p.y >= 0 && (p.x + 0.5) + (p.y + 0.5) <= 10);
+    }
+
+    // 6. Degenerate input fills nothing
+    assert(g::scanlineFill({{0, 0}, {5, 5}}).empty());
+
+    std::cout << "Scan-line fill: all tests passed\n";
+}
+
 int main() {
     testBresenham();
     testMidpointCircle();
     testCohenSutherland();
     testPolygonTransforms();
+    testScanlineFill();
     std::cout << "All graphics tests passed\n";
     return 0;
 }

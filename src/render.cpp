@@ -206,6 +206,61 @@ void renderPolygons(const std::string& dir) {
     c.saveBmp(dir + "/04-polygon-transformations.bmp", SCALE);
 }
 
+Polygon rectangle(double x0, double y0, double x1, double y1) {
+    return {{x0, y0}, {x1, y0}, {x1, y1}, {x0, y1}};
+}
+
+void fill(Canvas& c, const Polygon& poly, Color color) { c.plot(scanlineFill(poly), color); }
+
+constexpr Color ROOF_A{196, 120, 90};
+constexpr Color ROOF_B{150, 130, 170};
+constexpr Color CAR_COLORS[] = {{30, 110, 200}, {210, 60, 50}, {240, 180, 30}, {40, 150, 90}};
+
+// Image 5 — Scan-line fill: road surfaces, concave building footprints and car bodies
+// are filled polygons; outlines are drawn on top with Bresenham.
+void renderFill(const std::string& dir) {
+    Canvas c(W, H, GRASS);
+    const double pi = std::acos(-1.0);
+
+    // Road surfaces: a horizontal and a vertical rectangle (overlap at the junction).
+    fill(c, rectangle(0, 120, W, 180), ASPHALT);
+    fill(c, rectangle(170, 0, 230, H), ASPHALT);
+
+    // Concave L-shaped buildings in two corners, filled then outlined.
+    for (const auto& b : {translate(BUILDING, 40, 30), translate(scale(BUILDING, -1, 1, {0, 0}), 360, 30)}) {
+        fill(c, b, ROOF_A);
+        c.plot(polygonOutline(b), ASPHALT);
+    }
+    // A rotated rectangular building: the fill works for any orientation.
+    const Polygon block = rectangle(270, 210, 350, 260);
+    const Polygon tilted = rotate(block, pi / 10, vertexCentre(block));
+    fill(c, tilted, ROOF_B);
+    c.plot(polygonOutline(tilted), ASPHALT);
+
+    // A concave star shape (a fountain plaza) to show the even-odd crossings.
+    Polygon star;
+    for (int k = 0; k < 10; ++k) {
+        const double r = k % 2 ? 14 : 34;
+        const double a = k * pi / 5 - pi / 2;
+        star.push_back({90 + r * std::cos(a), 240 + r * std::sin(a)});
+    }
+    fill(c, star, YELLOW);
+    c.plot(polygonOutline(star), ASPHALT);
+
+    // Cars, each a filled polygon placed by rotation and translation.
+    const struct { double x, y, heading; } cars[] = {
+        {60, 135, 0}, {110, 135, 0}, {320, 165, pi}, {185, 70, -pi / 2}, {215, 240, pi / 2},
+    };
+    int i = 0;
+    for (const auto& car : cars) {
+        const Polygon body = placeCar(car.x, car.y, car.heading);
+        fill(c, body, CAR_COLORS[i++ % 4]);
+        c.plot(polygonOutline(body), WHITE);
+    }
+
+    c.saveBmp(dir + "/05-scanline-fill.bmp", SCALE);
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -216,6 +271,7 @@ int main(int argc, char** argv) {
         renderLineClipping(dir);
         renderCircles(dir);
         renderPolygons(dir);
+        renderFill(dir);
     } catch (const std::exception& e) {
         std::cerr << "Render failed: " << e.what() << '\n';
         return 1;
