@@ -1,10 +1,10 @@
-# SmartFlow — Interactive 2D Traffic Simulation
+# SmartFlow - Interactive 2D Traffic Simulation
 
 **A computer graphics group project: one road junction, drawn and animated with the graphics algorithms covered in class.**
 
 SmartFlow is a 2D simulation of a single traffic junction. Vehicles approach from four directions, stop at traffic signals, and go straight or turn left or right. We use this familiar scene to show how computer graphics techniques draw and move objects.
 
-**Current stage — Checkpoint 1:** the graphics algorithms covered so far are implemented in **pure C++**, with no graphics library. Each algorithm calculates exactly which pixels to colour, and our own code saves the result as an image. Every algorithm is applied to a simplified part of the junction.
+**Current stage - Checkpoint 1:** the graphics algorithms covered so far are implemented in **pure C++**, with no graphics library. Each algorithm calculates exactly which pixels to colour, and our own code saves the result as an image. Every algorithm is applied to a simplified part of the junction.
 
 ![The SmartFlow junction drawn with our C++ algorithms](docs/images/checkpoint-1/09-junction-scene.png)
 
@@ -20,11 +20,11 @@ SmartFlow is a 2D simulation of a single traffic junction. Vehicles approach fro
 
 ## Technologies and tools
 
-- **C++17** — all algorithms and the image writer
-- **g++ (MSYS2 MinGW-w64)** — compiler
-- **PowerShell** — `scripts/build.ps1` compiles, tests and renders in one command
-- **Git and GitHub** — version control, issues, milestone and pull requests
-- **Visual Studio Code** — editor
+- **C++17** : all algorithms and the image writer
+- **g++ (MSYS2 MinGW-w64)** : compiler
+- **PowerShell** : `scripts/build.ps1` compiles, tests and renders in one command
+- **Git and GitHub** : version control, issues, milestone and pull requests
+- **Visual Studio Code** : editor
 
 No graphics library is used at this stage. Images are written by our own BMP writer (`src/canvas.cpp`). A graphics library (raylib) is planned for the interactive window in later milestones.
 
