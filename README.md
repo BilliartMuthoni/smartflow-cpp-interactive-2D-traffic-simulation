@@ -112,3 +112,6 @@ No graphics library is used at this stage. Images are written by our own BMP wri
 - Lines are one pixel wide, with no anti-aliasing (edge smoothing).
 - Polygon clipping works against rectangular windows only.
 - The scene is a simplified model of one junction, not based on real traffic data.
+
+## C++ Interactive 2D Traffic Simulation Application
+For the project overview, group contributions, implemented graphics techniques, setup instructions, and current progress, see the [C++ Application README](cpp-app/README.md).
