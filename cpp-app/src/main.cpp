@@ -21,12 +21,14 @@ const Color BG{241,245,243,255}, INK{20,48,57,255}, MUTED{91,113,119,255};
 const Color TEAL{17,126,106,255}, MINT{220,244,234,255}, BORDER{216,228,222,255};
 const Color PAPER{255,255,255,255}, UI_GOLD{209,145,52,255};
 Font uiFont{};
+Texture2D showcaseImages[9]{};
 struct Input { Vector2 mouse{-1,-1}; bool pressed{}, down{}; } input;
 struct App {
     smartflow::TrafficSimulation sim;
-    bool running{false}, routes{false}, labels{true}, bounds{false};
+    bool running{false}, routes{false}, labels{true}, bounds{false}, sceneExpanded{false};
     float speed{1}, zoom{1};
     int view{}, selected{-1}, mode{}, nextEndpoint{};
+    float briefScroll{};
     int x0{4},y0{6},x1{35},y1{24},cx{20},cy{15},radius{10};
     void reset() { sim.reset(); running=false; selected=-1; }
     void setView(int v) { if (v != view) running=false; view=v; }
@@ -82,11 +84,11 @@ void header(App& a) {
     text("SmartFlow",72,17,28,WHITE);text("TRAFFIC & GRAPHICS LAB",74,50,11,Color{159,198,189,255});
     if(button({400,21,150,39},"Simulation",a.view==0))a.setView(0);
     if(button({562,21,150,39},"Graphics lab",a.view==1))a.setView(1);
-    if(button({724,21,150,39},"Project brief",a.view==2))a.setView(2);
+    if(button({724,21,150,39},"Presentation",a.view==2))a.setView(2);
     text("C++  /  NATIVE DESKTOP",1120,33,16,Color{188,219,209,255});
     rule(24,925,1352);
     text("SMARTFLOW   /   COMPUTER GRAPHICS",24,937,12,MUTED);
-    text("1 Simulation    2 Graphics lab    3 Project brief    F11 Fullscreen",890,937,12,MUTED);
+    text("1 Simulation    2 Graphics lab    3 Presentation    F11 Fullscreen",870,937,12,MUTED);
 }
 void inspector(App& a,Rectangle area) {
     auto it=std::find_if(a.sim.vehicles.begin(),a.sim.vehicles.end(),[&](const auto& v){return v.id==a.selected;});
@@ -101,6 +103,21 @@ void inspector(App& a,Rectangle area) {
     text("Stopped    "+fixed(it->wait)+" seconds",r.x+17,r.y+159,16);
 }
 void simulationView(App& a) {
+    if(a.sceneExpanded){
+        Rectangle scene{20,92,1360,813};
+        smartflow::drawScene(a.sim,scene,a.zoom,a.routes,a.labels,a.bounds,a.selected);
+        if(input.pressed&&hit(scene)){
+            if(!hit({30,104,190,44})&&!hit({228,104,170,44}))
+                a.selected=smartflow::pickVehicle(a.sim,scene,a.zoom,input.mouse);
+        }
+        panel({24,98,390,58});
+        if(button({34,106,180,42},"Back to controls"))a.sceneExpanded=false;
+        if(button({225,106,176,42},a.running?"Pause":"Start",true))a.running=!a.running;
+        panel({428,99,470,47});
+        text("Time "+fixed(a.sim.time)+" s   |   "+a.sim.phaseLabel(),448,111,17);
+        inspector(a,scene);
+        return;
+    }
     text("Traffic simulation",24,98,27);text("Seed 42  /  reproducible arrivals",1070,105,16,MUTED);
     panel({24,144,284,763});text("Control room",44,166,22);text(a.running?"RUNNING":"PAUSED",226,170,12,a.running?TEAL:MUTED);
     if(button({44,210,170,42},a.running?"Pause":"Start",true))a.running=!a.running;
@@ -142,7 +159,7 @@ void simulationView(App& a) {
     if(button({1130,791,34,29},"-"))a.zoom=std::max(.7f,a.zoom-.1f);
     text(fixed(a.zoom*100,0)+"%",1175,797,15);
     if(button({1225,791,34,29},"+"))a.zoom=std::min(1.6f,a.zoom+.1f);
-    if(button({1270,791,88,29},"Fit"))a.zoom=1;
+    if(button({1270,791,88,29},"Fit")){a.zoom=1;a.sceneExpanded=true;}
     panel({330,846,1046,61});
     text(a.sim.phaseLabel(),348,860,20);
     const std::string detail=(a.sim.phase=="allRed"&&a.sim.phaseRemaining==0)?"Waiting for junction to clear":fixed(a.sim.phaseRemaining)+" seconds remaining";
@@ -199,26 +216,119 @@ void labView(App& a) {
     if(a.mode!=2)text(std::to_string(pixels.size())+" calculated samples",1110,171,15,TEAL);
     text("Green: calculated result     Gold: ideal geometry     Coordinates: +x right, +y down",427,886,14,MUTED);
 }
-void briefView() {
-    text("Project brief",24,98,27);text("One intersection. A practical graphics study.",770,105,20,MUTED);
-    panel({24,144,656,205});text("The idea and the audience",46,165,23);
-    wrap("SmartFlow helps computer graphics students explore how geometry and traffic rules create an animated scene. Change demand and signal timing, then observe the queues and vehicle transformations.",46,206,610,19,INK,28);
-    panel({700,144,676,205});text("A manageable scope",723,165,23);
-    wrap("One junction with left-hand traffic, twelve routes, timed signals and interactive graphics algorithms. This teaching model uses conservative junction reservations. It is not calibrated to predict real road traffic.",723,206,626,19,INK,28);
-    panel({24,369,1352,135});text("Graphics you can explain",46,390,23);
-    wrap("Primitive shapes and colour  /  Translation and rotation  /  Scaling and viewport clipping  /  Cubic Bezier curves and path sampling  /  Fixed-step animation  /  Bresenham lines, midpoint circles and Cohen-Sutherland clipping",46,433,1295,19,INK,29);
-    panel({24,524,1352,283});text("Five members and assigned responsibilities",46,545,23);
-    const char* ids[]{"165899","164099","146412","168377","152710"};
-    const char* names[]{"Macharia Grace Wairimu","Mwangi Billiart B. Muthoni","Njugi Elijah Muiru","Kihumba Kevin Renana","Kisotu Samuel Lemayian"};
-    const char* roles[]{"Concept, purpose and introduction","Mathematics, route geometry and drawing algorithms","Lead programming, simulation and integration","Scene, interface and feature planning","Documentation, testing and demonstration preparation"};
-    for(int i=0;i<5;i++){float y=597.f+i*38; if(i%2==0)DrawRectangleRec({43,y-5,1310,35},BG);text(ids[i],54,y,17,TEAL);text(names[i],160,y,18);text(roles[i],608,y,18);}
-    panel({24,827,1352,80});text("Development sequence",46,844,20);
-    text("Concept and design  >  Core graphics  >  Advanced graphics  >  Integration and refinement",330,846,20,TEAL);
-    text("Each member should understand their assigned area and record their actual contributions through GitHub.",46,878,16,MUTED);
+void showcaseView(App& a) {
+    struct Part {const char* speaker;const char* title;const char* purpose;const char* method;const char* result;const char* source;const char* code1;const char* code2;int image;};
+    static const Part parts[]{
+        {"GRACE  /  THE IDEA","Why we chose a traffic junction",
+         "We wanted to apply the graphical representations taught in class to a familiar system. One junction gives us visible movement, direction, timing, stopping and queues.",
+         "Our proposed simulator lets us vary traffic demand and signal time, then observe different conditions at the junction. We kept the model small enough to explain and test.",
+         "The result is a C++ application with a traffic view, a graphics lab and this presentation.",
+         "Project scope  |  README.md", "Four approaches  x  three turns  =  twelve routes", "One junction  |  left-hand traffic", 4},
+        {"GRACE  /  SCOPE DECISIONS","Proposal compared with actual work",
+         "Our first prototype used SVG and JavaScript. Once C++ was required, we rebuilt the work as a C++17 desktop application and used raylib for windowing, input and drawing.",
+         "We considered pedestrians, but a crossing needs spawn points, a walk path, signal timing and a rule for conflicts with cars. Multiple linked junctions would also need coordinated signals. Incident simulation was left outside this version.",
+         "We retained the central idea and completed one interactive junction, twelve routes, timed signals, a graphics lab and repeatable tests.",
+         "Evidence  |  README.md  +  docs/migration-guide.md", "SVG/JavaScript prototype  ->  native C++17", "Pedestrians and extra junctions  ->  future scope", 0},
+        {"ELIJAH  /  MODEL","A car is data before it is a drawing",
+         "I integrated the traffic model with the application. The model stores routes, vehicles, demand, signal state and statistics. Each car has a route index, progress, speed, position and heading.",
+         "TrafficSimulation::step(dt) accumulates elapsed time and runs fixedStep() at a fixed interval. Arrivals become vehicles when the entry is free. The update moves leaders first and checks gaps before moving followers.",
+         "The scene reads the calculated positions. The UI can start, pause, step and reset the same model; it does not invent car positions. A fixed seed makes Reset reproduce a scenario.",
+         "src/simulation.cpp  |  src/main.cpp", "while (accumulator_ + 1e-10 >= FIXED_STEP)", "vehicle.angle = nextPoint.angle;", 5},
+        {"ELIJAH  /  CONTROL","Signals, queues and safe movement",
+         "The signal is a state machine: green, amber, then all-red clearance. A new approach receives green only after clearance and once the intersection is unoccupied.",
+         "A car approaching a red signal slows toward its stop line. The model also limits speed using the available gap to a leader and a conservative overlap check. Demand changes arrival spacing; green duration is applied at the next green.",
+         "The running view exposes active cars, stopped cars, completed trips and average wait. Fit enlarges the simulation screen.",
+         "src/simulation.cpp  |  tests/simulation_test.cpp", "green  ->  amber  ->  allRed  ->  next green", "if (!permitted) nextProgress <= stop", 6},
+        {"BILLIART  /  ROUTE GEOMETRY","Curves, sampling and transformations",
+         "We build straight, left and right routes from every approach. A base route is rotated around the junction for the other approaches, so the geometry remains consistent.",
+         "A cubic Bezier curve defines each turn. We sample the curve, store cumulative distance, and use pointAt(progress) to interpolate a car's x and y. atan2 gives its heading. The scene translates and rotates the car drawing.",
+         "This gives smooth turns and continuous direction. Route tests check all twelve paths, end points and heading changes. Route overlays make the geometry visible during the live demo.",
+         "src/simulation.cpp  |  src/scene.cpp", "points.push_back(cubic(route.curve, i / 100.0));", "angle = atan2(dy, dx) * 180 / PI", 7},
+        {"BILLIART  /  RASTER ALGORITHMS","Calculated pixels in the graphics lab",
+         "Bresenham's line algorithm takes two integer endpoints. Its error value determines whether the next sample moves horizontally, vertically or both, keeping the pixels connected.",
+         "The code widens coordinate differences before subtraction and works in every line octant. It updates the accumulated error after each selected pixel rather than relying on floating-point slope calculations.",
+         "The lab draws calculated samples in green and ideal geometry in gold. We will simulate this in the graph. Tests cover horizontal, vertical, steep and reverse directions.",
+         "src/graphics.cpp  |  tests/graphics_test.cpp", "bresenhamLine(x0, y0, x1, y1)", "error += dy;  error += dx;", 1},
+        {"BILLIART  /  CIRCLE","Eight-way symmetry in the circle",
+         "The midpoint circle starts at the radius on one axis with a decision value. A single calculated point yields matching pixels in eight octants around the chosen centre.",
+         "After each step, the decision value selects whether to stay on the same x position or move inward. An unordered set avoids duplicates at the axes and diagonals.",
+         "Changing centre and radius recalculates the green pixel ring. The gold circle is only a visual reference. The implementation uses integer decisions rather than drawing a pre-made image.",
+         "src/graphics.cpp  |  tests/graphics_test.cpp", "auto decision = 1 - x;", "eight symmetric pixels per step", 2},
+        {"BILLIART  /  CLIPPING","Keeping a line inside the viewport",
+         "Cohen-Sutherland clipping assigns each endpoint a region code relative to a rectangle. If both codes are zero, the segment is inside; a shared outside bit means it cannot enter.",
+         "Otherwise the algorithm calculates an intersection with an edge, replaces the outside endpoint and repeats. The lab highlights only the accepted segment in green.",
+         "This makes boundary decisions visible and testable. The traffic renderer also clips the scene to its viewport so cars outside the world do not appear in the margins.",
+         "src/graphics.cpp  |  src/scene.cpp", "if (!(a | b)) return Segment{...};", "if (a & b) return std::nullopt;", 3},
+        {"KEVIN  /  SCENE","Drawing a readable junction",
+         "The scene is assembled from 2D primitives: road and pavement rectangles, lane and stop lines, crossing marks, buildings, trees, traffic lights and vehicle shapes.",
+         "The scene camera maps the 1000 by 800 world into the available viewport. Cars are drawn at model coordinates. Each car drawing is translated to its position and rotated to its heading.",
+         "The signals reflect the model's current phase. Scene labels now use a larger, clearer font. The expanded Fit view fills the presentation area while keeping the junction in proportion.",
+         "src/scene.cpp  |  include/scene.hpp", "BeginMode2D(camera);  drawMap();", "drawSignals(simulation);  drawCar(vehicle);", 4},
+        {"KEVIN  /  INTERFACE","Controls that reveal the model",
+         "The control room groups Start, Pause, Reset and Step with demand, green time and playback speed. Statistics stay above the junction, while the current signal phase appears below it.",
+         "Route, label and boundary toggles let us reveal one layer at a time. Clicking a car opens its route, position, rotation, speed and stopped time. Fit enlarges the scene; Back to controls returns to the dashboard.",
+         "The controls call model methods such as setDensity, setGreenDuration, step and requestNextPhase. This makes an input change visible in the next rendered state.",
+         "src/main.cpp  |  src/scene.cpp", "a.sim.setDensity(density);", "drawScene(a.sim, scene, a.zoom, ...);", 5},
+        {"SAMUEL  /  VERIFICATION","Evidence, collaboration and next steps",
+         "Our tests check all twelve routes, repeatable reset, fixed updates, signal clearance and dense traffic. Graphics tests cover line octants, circle symmetry and clipping cases.",
+         "The build script compiles and runs tests before the app. The README and verification notes explain how to reproduce the result. We coordinated through GitHub branches and pull requests, and used WhatsApp for group discussion.",
+         "For future work we recommend pedestrian rules, richer events and more junctions only after defining their timing and safety behaviour. We will finish by showing the running app and the current GitHub repository.",
+         "GitHub snapshot  |  tests/  |  docs/verification.md", "8/8 traffic checks  +  graphics checks", "Show the current main branch live at the end", 8}
+    };
+    constexpr int count=static_cast<int>(sizeof(parts)/sizeof(parts[0]));
+    static const char* challenges[]{
+        "SCOPE: Keep one junction detailed enough to demonstrate and test.",
+        "SCOPE: Pedestrian timing needs rules before it can be drawn honestly.",
+        "CHALLENGE: Keep traffic state independent of drawing frames.",
+        "CHALLENGE: Prevent conflicting greens and overlapping cars.",
+        "CHALLENGE: Make turns smooth without position or heading jumps.",
+        "CHALLENGE: Handle every line direction with one integer algorithm.",
+        "CHALLENGE: Avoid duplicate circle pixels at symmetry boundaries.",
+        "CHALLENGE: Clip partially visible lines without changing their path.",
+        "CHALLENGE: Keep scene geometry readable as the viewport changes.",
+        "CHALLENGE: Connect each control to the model's real state.",
+        "CHALLENGE: Show code, output and repeatable evidence together."
+    };
+    constexpr float top=145,bottom=906,section=690,maxScroll=count*section-(bottom-top);
+    text("Presentation",24,98,27);
+    a.briefScroll=std::clamp(a.briefScroll,0.f,maxScroll);
+    BeginScissorMode(24,static_cast<int>(top),1352,static_cast<int>(bottom-top));
+    for(int i=0;i<count;i++){
+        const float y=top+i*section-a.briefScroll;
+        if(y>bottom||y+section<top)continue;
+        panel({38,y+10,1320,660});
+        text(std::to_string(i+1)+" / "+std::to_string(count)+"     "+parts[i].speaker,68,y+35,18,TEAL);
+        text(parts[i].title,68,y+76,30,INK);
+        rule(68,y+119,1245);
+        text("PURPOSE",68,y+148,15,TEAL);
+        wrap(parts[i].purpose,68,y+178,625,19,INK,28);
+        text("IMPLEMENTATION",68,y+305,15,TEAL);
+        wrap(parts[i].method,68,y+335,625,19,INK,28);
+        text("RESULT AND EVIDENCE",68,y+478,15,TEAL);
+        wrap(parts[i].result,68,y+508,625,19,INK,28);
+        text(challenges[i],68,y+623,15,TEAL);
+        const int picture=parts[i].image;
+        if(showcaseImages[picture].id){
+            const auto& im=showcaseImages[picture];
+            Rectangle frame{733,y+144,575,384};
+            const float scale=std::min(frame.width/im.width,frame.height/im.height);
+            Rectangle dest{frame.x+(frame.width-im.width*scale)/2,frame.y+(frame.height-im.height*scale)/2,im.width*scale,im.height*scale};
+            DrawRectangleRec(frame,BG);
+            DrawTexturePro(im,{0,0,static_cast<float>(im.width),static_cast<float>(im.height)},dest,{0,0},0,WHITE);
+            DrawRectangleLinesEx(frame,1,BORDER);
+        }
+        panel({733,y+544,575,100},MINT);
+        text(parts[i].source,751,y+555,14,TEAL);
+        text(parts[i].code1,751,y+579,16,INK);
+        text(parts[i].code2,751,y+604,16,INK);
+    }
+    EndScissorMode();
+    DrawRectangleRounded({1366,top,6,bottom-top},1,4,BORDER);
+    DrawRectangleRounded({1366,top+(a.briefScroll/maxScroll)*625,6,136},1,4,TEAL);
 }
 void render(App& a,RenderTexture2D canvas) {
     BeginTextureMode(canvas);ClearBackground(BG);header(a);
-    if(a.view==0)simulationView(a);else if(a.view==1)labView(a);else briefView();
+    if(a.view==0)simulationView(a);else if(a.view==1)labView(a);else showcaseView(a);
     EndTextureMode();
 }
 void capture(RenderTexture2D canvas,const std::filesystem::path& file) {
@@ -235,7 +345,9 @@ void smokeTest(App& a,RenderTexture2D canvas,const std::filesystem::path& out) {
     click(240,410);require(a.sim.density==48,"Rush preset");click(287,376);require(a.sim.density==60,"Demand slider");
     click(287,491);require(a.sim.greenDuration==30,"Green slider");click(267,596);require(a.speed==4,"Speed control");
     click(1260,875);require(a.sim.phase=="amber","Next phase transition");
-    click(1240,804);require(a.zoom>1,"Zoom control");click(1310,804);require(a.zoom==1,"Fit control");
+    click(1240,804);require(a.zoom>1,"Zoom control");click(1310,804);require(a.zoom==1&&a.sceneExpanded,"Fit control");
+    render(a,canvas);capture(canvas,out/"expanded-scene.png");
+    click(100,126);require(!a.sceneExpanded,"Expanded scene return");
     click(65,706);click(65,778);require(a.routes&&a.bounds,"Scene layers");
     a.sim.setDensity(48);a.sim.setGreenDuration(10);a.reset();a.sim.step(100);
     const Rectangle area{331,306,1044,477};
@@ -251,7 +363,8 @@ void smokeTest(App& a,RenderTexture2D canvas,const std::filesystem::path& out) {
     click(528,449);require(a.x0==5&&a.y0==10,"Grid endpoint input");render(a,canvas);capture(canvas,out/"lab-line.png");
     click(120,267);require(a.mode==1,"Circle mode");click(864,596);require(a.cx==21&&a.cy==17,"Circle centre input");render(a,canvas);capture(canvas,out/"lab-circle.png");
     click(125,750);require(a.radius==10&&a.cx==20,"Lab reset");click(120,314);require(a.mode==2,"Clip mode");render(a,canvas);capture(canvas,out/"lab-clipping.png");
-    click(800,40);require(a.view==2,"Brief navigation");render(a,canvas);capture(canvas,out/"project-brief.png");
+    click(800,40);require(a.view==2,"Presentation navigation");
+    for(int i=0;i<11;i++){a.briefScroll=static_cast<float>(i*690);render(a,canvas);capture(canvas,out/("presentation-"+std::to_string(i+1)+".png"));}
     click(450,40);require(a.view==0,"Simulation navigation");
     std::ofstream(out/"ui-results.txt")<<"PASS: native UI start, pause, step, reset, presets, sliders, speed, signal advance, zoom, layers, vehicle selection, all lab modes, coordinate input, geometry reset, navigation and pause-on-tab-change.\n";
 }
@@ -269,7 +382,15 @@ int main(int argc,char** argv) {
     const char* windowsFont="C:/Windows/Fonts/segoeui.ttf";
     if(FileExists(windowsFont)){uiFont=LoadFontEx(windowsFont,40,nullptr,0);loadedFont=uiFont.texture.id!=GetFontDefault().texture.id;}
     SetTextureFilter(uiFont.texture,TEXTURE_FILTER_BILINEAR);
+    smartflow::setSceneFont(uiFont);
     RenderTexture2D canvas=LoadRenderTexture(CANVAS_W,CANVAS_H);SetTextureFilter(canvas.texture,TEXTURE_FILTER_BILINEAR);
+    const char* images[]{"simulation.png","lab-line.png","lab-circle.png","lab-clipping.png","expanded-scene.png","running.png","routes.png","routes.png","github.png"};
+    for(int i=0;i<9;i++){
+        std::string local=std::string("assets/showcase/")+images[i];
+        std::string beside=std::string("../assets/showcase/")+images[i];
+        if(FileExists(local.c_str()))showcaseImages[i]=LoadTexture(local.c_str());
+        else if(FileExists(beside.c_str()))showcaseImages[i]=LoadTexture(beside.c_str());
+    }
     int result=0;
     try {
         App app;
@@ -282,6 +403,13 @@ int main(int argc,char** argv) {
             if(IsKeyPressed(KEY_ONE))app.setView(0);
             if(IsKeyPressed(KEY_TWO))app.setView(1);
             if(IsKeyPressed(KEY_THREE))app.setView(2);
+            if(app.view==2){
+                if(CheckCollisionPointRec(input.mouse,{24,174,1352,732}))app.briefScroll-=GetMouseWheelMove()*110;
+                if(IsKeyDown(KEY_DOWN))app.briefScroll+=400*GetFrameTime();
+                if(IsKeyDown(KEY_UP))app.briefScroll-=400*GetFrameTime();
+                if(IsKeyPressed(KEY_PAGE_DOWN)||IsKeyPressed(KEY_RIGHT))app.briefScroll+=555;
+                if(IsKeyPressed(KEY_PAGE_UP)||IsKeyPressed(KEY_LEFT))app.briefScroll-=555;
+            }
             if(IsKeyPressed(KEY_F11))ToggleBorderlessWindowed();
             if(IsKeyPressed(KEY_ESCAPE))app.selected=-1;
             if(app.view==0){
@@ -303,5 +431,6 @@ int main(int argc,char** argv) {
             EndDrawing();
         }
     }catch(const std::exception& e){std::ofstream("SmartFlow-error.log")<<e.what()<<'\n';result=1;}
+    for(auto& im:showcaseImages)if(im.id)UnloadTexture(im);
     UnloadRenderTexture(canvas);if(loadedFont)UnloadFont(uiFont);CloseWindow();return result;
 }
