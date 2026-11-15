@@ -1,0 +1,1 @@
+PASS: native UI start, pause, step, reset, presets, sliders, speed, signal advance, zoom, layers, vehicle selection, all lab modes, coordinate input, geometry reset, navigation and pause-on-tab-change.
