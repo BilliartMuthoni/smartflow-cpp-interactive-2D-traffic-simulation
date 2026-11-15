@@ -5,6 +5,8 @@
 
 namespace smartflow {
 
+void setSceneFont(Font font);
+
 // The simulation owns the data; this layer only turns world coordinates into art.
 // The viewport is a screen-space rectangle. Zoom remains centred on (500, 400).
 void drawScene(const TrafficSimulation& simulation, Rectangle viewport, float zoom,

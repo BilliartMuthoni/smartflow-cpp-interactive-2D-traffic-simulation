@@ -1,6 +1,6 @@
 # C++ verification record
 
-Verified on 21 September 2026 on this Windows computer with MinGW-w64 GCC 15.2.0 and raylib 5.5. These results concern the C++ version in this folder.
+Verified again on 15 November 2026 on this Windows computer with MinGW-w64 GCC 16.2.0 and raylib 5.5. These results concern the C++ version in this folder.
 
 ## Calculation tests
 
@@ -25,20 +25,20 @@ The built application ran its `--smoke-test` mode successfully in a hidden nativ
 
 - Start, pause, one-second stepping and reset.
 - Demand preset and slider, green-duration slider and playback-speed selection.
-- Safe next-phase request, zoom, fit and scene-layer switches.
+- Safe next-phase request, zoom, expanded Fit view, return to controls and scene-layer switches.
 - Selection of a visible vehicle and its inspector.
 - All three graphics-lab modes, grid coordinate input and geometry reset.
-- Navigation among simulation, lab and brief, including pausing traffic when leaving the simulation.
+- Navigation among simulation, lab and Presentation, including pausing traffic when leaving the simulation.
 
-The check exported the actual application's rendered simulation, line lab, circle lab, clipping lab and project brief. All five images were reviewed for readable content, clipping and overlap. The project brief contains the five current members.
+The check exported the actual application's rendered simulation, expanded scene, three lab modes and eleven presentation sections. The presentation sections show the five current members, technical explanations, source references and screenshots.
 
 To repeat the check from the project folder:
 
 ```powershell
-./bin/SmartFlow.exe --smoke-test build/ui-check
+./bin/SmartFlow-Presentation.exe --smoke-test build/ui-check
 ```
 
-A passing check writes `build/ui-check/ui-results.txt` and the five PNGs. A failure returns a nonzero exit code and writes `SmartFlow-error.log`. These generated files are excluded from source submissions. This is an automated interaction check, not a claim that every keyboard shortcut, fullscreen state, screen resolution or accessibility tool has been manually tested.
+A passing check writes `build/ui-check/ui-results.txt` and the rendered PNGs. A failure returns a nonzero exit code and writes `SmartFlow-error.log`. These generated files are excluded from source submissions. This is an automated interaction check, not a claim that every keyboard shortcut, fullscreen state, screen resolution or accessibility tool has been manually tested.
 
 ## Executable and original-file checks
 
@@ -48,4 +48,4 @@ SHA256 comparison of 110 original browser-project source, distribution, document
 
 ## Limits
 
-These tests support this educational implementation on the tested computer. They do not establish compatibility with every other computer or validate real-road traffic predictions. The native UI uses different rendering from SVG, so typography and individual pixels can differ. The old presentation and Word materials still describe the preserved browser version.
+These tests cover the stated calculations and interactions on the tested computer. They do not establish compatibility with every other computer. The native UI uses different rendering from SVG, so typography and individual pixels can differ. The Word script in this folder matches the current C++ presentation.

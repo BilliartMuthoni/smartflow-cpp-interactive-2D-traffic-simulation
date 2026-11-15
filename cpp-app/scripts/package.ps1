@@ -2,14 +2,14 @@ param()
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $output = Join-Path (Split-Path -Parent $projectRoot) 'SmartFlow-Cpp-Project.zip'
-if (-not (Test-Path -LiteralPath "$projectRoot/bin/SmartFlow.exe")) { throw 'Build SmartFlow first.' }
+if (-not (Test-Path -LiteralPath "$projectRoot/bin/SmartFlow-Presentation.exe")) { throw 'Build SmartFlow first.' }
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $files = @()
 foreach ($name in @('README.md','THIRD_PARTY.md','.gitignore','.gitattributes','Build SmartFlow.cmd','Open SmartFlow.cmd')) {
     $files += Get-Item -LiteralPath (Join-Path $projectRoot $name)
 }
-foreach ($directory in @('src','include','tests','scripts','docs','vendor','bin')) {
+foreach ($directory in @('src','include','tests','scripts','docs','assets','vendor','bin')) {
     $files += Get-ChildItem -LiteralPath (Join-Path $projectRoot $directory) -Recurse -File
 }
 $stream = [System.IO.File]::Open($output,[System.IO.FileMode]::Create)

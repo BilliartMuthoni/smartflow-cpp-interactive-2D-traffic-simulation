@@ -40,6 +40,6 @@ if ($RebuildLibrary -or -not (Test-Path $library)) {
 }
 Write-Output 'Building SmartFlow C++'
 $sources = @('main','simulation','graphics','scene') | ForEach-Object { "$projectRoot/src/$_.cpp" }
-Invoke-Checked $Compiler ($common + @("-I$raySrc") + $sources + @($library,'-lopengl32','-lgdi32','-lwinmm','-mwindows','-o',"$binDir/SmartFlow.exe"))
+Invoke-Checked $Compiler ($common + @("-I$raySrc") + $sources + @($library,'-lopengl32','-lgdi32','-lwinmm','-mwindows','-o',"$binDir/SmartFlow-Presentation.exe"))
 Copy-Item -LiteralPath "$projectRoot/vendor/raylib-5.5/LICENSE" -Destination "$binDir/raylib-LICENSE.txt"
-Write-Output "Ready: $binDir/SmartFlow.exe"
+Write-Output "Ready: $binDir/SmartFlow-Presentation.exe"
