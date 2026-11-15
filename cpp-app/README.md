@@ -2,7 +2,7 @@
 
 **A computer graphics group project: one intersection, moving vehicles, and mathematics you can explore.**
 
-SmartFlow is a native **C++17 desktop application** for studying traffic movement and computer graphics. It contains an animated intersection, an interactive graphics laboratory, and a project brief with the five current group members. Users can change traffic demand and signal timing, inspect vehicles, and experiment with three graphics algorithms.
+SmartFlow is a native **C++17 desktop application** for studying traffic movement and computer graphics. It contains an animated intersection, an interactive graphics laboratory, and a technical presentation covering the five current group members. Users can change traffic demand and signal timing, inspect vehicles, and experiment with three graphics algorithms.
 
 Our idea began with a traffic-system simulation: turn a familiar road junction into a practical way to explain computer graphics. The first prototype used SVG and JavaScript. Following the lecturer's C++ requirement, the project was implemented separately in C++ with raylib for the window, input and drawing. This `cpp-app/` folder contains that native version. The original browser project remains preserved separately; the C++ application does not depend on it.
 
@@ -22,7 +22,7 @@ Our idea began with a traffic-system simulation: turn a familiar road junction i
 
 ## Open the application
 
-Clone the [main group repository](https://github.com/BilliartMuthoni/smartflow-cpp-interactive-2D-traffic-simulation), enter `cpp-app/`, and build from source using the instructions below. Then double-click **Open SmartFlow.cmd**, or open **bin/SmartFlow.exe** directly. The application starts paused so you can explain the scene before starting traffic.
+From this repository, build the app using the instructions below. Then double-click **Open SmartFlow.cmd**, or open **bin/SmartFlow-Presentation.exe** directly. The application starts paused so you can explain the scene before starting traffic.
 
 If you cloned the repository or used GitHub's **Download ZIP**, build first using the instructions below. A source checkout does not contain `bin/`, because generated executables are excluded from Git. If the launcher says the executable is missing, run **Build SmartFlow.cmd** after setting up the required compiler.
 
@@ -37,7 +37,7 @@ git clone https://github.com/BilliartMuthoni/smartflow-cpp-interactive-2D-traffi
 cd smartflow-cpp-interactive-2D-traffic-simulation/cpp-app
 ```
 
-Double-click **Build SmartFlow.cmd**. It compiles and runs the model and graphics tests, builds raylib if needed, and creates `bin/SmartFlow.exe`.
+Double-click **Build SmartFlow.cmd**. It compiles and runs the model and graphics tests, builds raylib if needed, and creates `bin/SmartFlow-Presentation.exe`.
 
 Alternatively, open PowerShell in this folder and run:
 
@@ -67,7 +67,7 @@ Use `-RebuildLibrary` when raylib's source or its compiler configuration has cha
 
 Start or pause traffic, reset the model, or advance one simulated second while paused. Change demand from 4 to 60 arrivals per minute, use Quiet/Normal/Rush presets, and change green duration from 6 to 30 seconds. New green-duration settings take effect at the next green phase.
 
-Playback speeds are 0.5×, 1×, 2× and 4×. The scene contains left-hand traffic, twelve routes, turning vehicles, signals, buildings and landscaping. Toggle route paths, scene labels and the junction boundary. Zoom with the plus/minus buttons and restore the initial view with **Fit**.
+Playback speeds are 0.5×, 1×, 2× and 4×. The scene contains left-hand traffic, twelve routes, turning vehicles, signals, buildings and landscaping. Toggle route paths, scene labels and the junction boundary. Zoom with the plus/minus buttons. **Fit** resets zoom and expands the traffic scene across the presentation area; **Back to controls** returns to the dashboard.
 
 Click a vehicle to inspect its approach, turn, position, rotation, speed and stopped time. The dashboard reports active vehicles, stopped vehicles, demand waiting offscreen, completed trips and average wait for completed trips. “Next phase” advances signal control through its clearance rules; it does not simply give another approach an immediate green.
 
@@ -77,15 +77,15 @@ Choose **Bresenham line**, **Midpoint circle**, or **Line clipping**. Click the 
 
 The green marks show the calculated result and the gold geometry provides a visual reference. The three algorithms are implemented in our C++ source; raylib paints the calculated results. Read the [graphics mathematics explanation](docs/graphics-mathematics.md) for worked examples.
 
-### Project brief
+### Presentation
 
-This page explains the idea, scope, graphics concepts and assigned responsibilities. Switching away from the Simulation workspace pauses it. When the application loses focus, its traffic model stops advancing until focus returns.
+This workspace opens with a vertically scrolling technical presentation that can be delivered directly inside SmartFlow. Use the mouse wheel, Up/Down arrows, or Page Up/Page Down to move through the project journey, individual responsibilities, techniques, screenshots and code references. After the member sections, demonstrate the running Simulation and Graphics lab, then show the current GitHub repository. Switching away from the Simulation workspace pauses it. When the application loses focus, its traffic model stops advancing until focus returns.
 
 ## Keyboard shortcuts
 
 | Key | Action |
 | --- | --- |
-| `1`, `2`, `3` | Open Simulation, Graphics lab, or Project brief |
+| `1`, `2`, `3` | Open Simulation, Graphics lab, or Presentation |
 | `F11` | Toggle borderless fullscreen |
 | `Esc` | Clear vehicle selection |
 | `Space` | Start/pause traffic in Simulation |
@@ -103,7 +103,7 @@ Traffic shortcuts apply in the Simulation workspace. Close the application with 
 
 | File or folder | Responsibility |
 | --- | --- |
-| `src/main.cpp` | Window, application loop, controls, graphics lab, project brief and UI smoke checks |
+| `src/main.cpp` | Window, application loop, controls, graphics lab, presentation and UI smoke checks |
 | `src/simulation.cpp` | Routes, vehicle movement, demand, queues, signals and statistics |
 | `include/simulation.hpp` | Public model types, constants and simulation interface |
 | `src/scene.cpp` | Map and vehicle drawing, world-to-screen view and vehicle selection |
@@ -135,11 +135,11 @@ The sections below map our allocated areas to the implemented project; each memb
 Grace's area connects the technical application to the problem the group is presenting: how can an animated junction make graphics concepts and traffic behaviour easier to understand?
 
 - **Project purpose:** explain the intended audience, the traffic-system idea and its value as a computer graphics learning project.
-- **Scope:** explain why the work focuses on one junction rather than an entire city, and distinguish an educational model from a prediction of real road conditions.
+- **Scope:** explain why the work focuses on one junction with twelve routes and timed signals.
 - **Introduction:** connect the original idea to the C++ implementation and introduce the features before the technical demonstration.
-- **Relevant files:** the introduction and scope sections of this `README.md`, the context in [`docs/migration-guide.md`](docs/migration-guide.md), and the idea-and-audience text in `briefView()` in [`src/main.cpp`](src/main.cpp).
+- **Relevant files:** the introduction and scope sections of this `README.md`, the context in [`docs/migration-guide.md`](docs/migration-guide.md), and the project journey text in `showcaseView()` in [`src/main.cpp`](src/main.cpp).
 
-**How this fits the application:** the Project brief gives the audience the reason for the project, its boundaries and the graphics concepts to look for during the demonstration.
+**How this fits the application:** the Presentation introduces the project idea, scope decisions and graphics concepts before the demonstration.
 
 ### Billiart — mathematics and graphics algorithms
 
@@ -175,7 +175,7 @@ Kevin's area turns the model's numbers into a clear, interactive visual scene an
 - **Vehicles and signals:** `drawCar()` draws a reusable vehicle at its model position and rotation; `drawSignals()` displays the current signal states.
 - **Viewing and interaction:** `sceneCamera()` maps the world to the viewport, `drawScene()` combines the layers, and `pickVehicle()` supports selection for the inspector.
 - **Interface:** layout, labels, buttons, sliders, toggles, navigation and metrics in `main.cpp` make the model and lab understandable to users.
-- **Feature explanation:** the scope includes the simulation controls, layer switches, graphics lab and project brief.
+- **Feature explanation:** the scope includes the simulation controls, layer switches, graphics lab and presentation.
 - **Relevant files:** [`include/scene.hpp`](include/scene.hpp), [`src/scene.cpp`](src/scene.cpp), and the interface/layout sections of [`src/main.cpp`](src/main.cpp).
 
 **How this fits the application:** the renderer reads model data and displays it. Changing a colour or layout does not require rewriting the traffic rules.
@@ -232,27 +232,28 @@ The [verification record](docs/verification.md) documents the recorded Windows c
 After a full build, repeat the native interface check with:
 
 ```powershell
-./bin/SmartFlow.exe --smoke-test build/ui-check
+./bin/SmartFlow-Presentation.exe --smoke-test build/ui-check
 ```
 
 This runs an automated interaction sequence in a hidden native window and writes `ui-results.txt` plus screenshots under `build/ui-check/`. Failure returns a nonzero exit code and writes `SmartFlow-error.log`. It does not establish compatibility with every computer or replace all manual usability checks.
 
 ## A short group demonstration
 
-1. **Grace:** introduce the traffic-system idea and learning purpose.
-2. **Kevin:** explain the junction, available controls and feature scope.
-3. **Elijah:** start traffic, change demand, inspect a vehicle, and explain the model and application loop.
-4. **Billiart:** show route geometry and demonstrate a line, a circle and a clipping example in the lab.
-5. **Samuel:** explain the verification process, build/run instructions and project limitations, then close the demonstration.
+1. **Grace:** introduce the traffic-system idea and compare the proposal with the current project.
+2. **Elijah:** explain the model, signal control, queues and fixed updates.
+3. **Billiart:** explain route geometry and the three graphics algorithms.
+4. **Kevin:** explain scene drawing, controls and vehicle inspection.
+5. **Samuel:** explain verification, collaboration and the live demonstration plan.
 
 ## Documentation and submission
 
 - [Migration guide](docs/migration-guide.md): how the browser version maps to C++, file ownership and a simple submission workflow.
 - [Graphics mathematics](docs/graphics-mathematics.md): the three custom algorithms and their tests.
 - [Verification record](docs/verification.md): check results and the limits of what has been verified.
+- [Group speaking script](docs/SmartFlow_Technical_Showcase_Group_Script.docx): speaker text and screen-sharing cues for the eleven-section presentation.
 - [Third-party notices](THIRD_PARTY.md): dependency attribution and licence information.
 
-The original PowerPoint, Word script, handbook and other browser-project materials remain unchanged. They still describe SVG and JavaScript. Use them as historical reference; a C++ presentation should have a separate, updated copy when requested.
+The C++ speaking script in this folder matches the application's Presentation tab. Older browser-project materials describe the original SVG and JavaScript prototype.
 
 For a GitHub source submission, include `src/`, `include/`, `tests/`, `scripts/`, `docs/`, the launch/build command files, `.gitignore`, this README, and the vendored raylib source with its licences. Do not add generated `build/` or `bin/` files to normal source commits. A separate runnable Windows release or ZIP can include the built application and its licence files. Keep third-party code clearly identified as raylib.
 
@@ -266,6 +267,6 @@ It creates `SmartFlow-Cpp-Project.zip` in the repository's parent folder. The ar
 
 ## Scope and dependencies
 
-This is a teaching simulation of one junction. It uses conservative junction reservations and has not been calibrated to predict a real road's capacity or journey times. The scene recreates the project's visual idea with native drawing operations, so individual pixels and typography can differ from the browser version.
+The current scope is one junction with left-hand traffic, twelve routes and timed signals. The scene recreates the project's visual idea with native drawing operations, so individual pixels and typography can differ from the browser version.
 
 Raylib 5.5 supplies the window, input and drawing API; its official source is stored locally in `vendor/raylib-5.5`. The application compiles this dependency into its executable. Windows system graphics libraries remain operating-system dependencies. The UI reads the installed Segoe UI font when available and otherwise uses raylib's default font; no Windows font file is redistributed.

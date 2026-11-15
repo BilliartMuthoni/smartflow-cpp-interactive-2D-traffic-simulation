@@ -10,6 +10,8 @@
 namespace smartflow {
 namespace {
 
+Font sceneFont{};
+
 constexpr Color grass{222, 233, 222, 255};
 constexpr Color pavement{193, 209, 197, 255};
 constexpr Color road{66, 86, 89, 255};
@@ -33,8 +35,9 @@ void rounded(float x, float y, float w, float h, float radius, Color color) {
 }
 
 void centered(const char* text, float x, float y, float size, Color color, float spacing = 1.0f) {
-    const Vector2 measured = MeasureTextEx(GetFontDefault(), text, size, spacing);
-    DrawTextEx(GetFontDefault(), text, {x - measured.x / 2, y}, size, spacing, color);
+    const Font font = sceneFont.texture.id ? sceneFont : GetFontDefault();
+    const Vector2 measured = MeasureTextEx(font, text, size, spacing);
+    DrawTextEx(font, text, {x - measured.x / 2, y}, size, spacing, color);
 }
 
 void dashed(Vector2 a, Vector2 b, float stroke, Color color, float dash = 16, float gap = 14) {
@@ -178,20 +181,20 @@ void drawMap() {
 }
 
 void drawLabels() {
-    const Color label{94, 123, 99, 255};
-    centered("SCIENCE BLOCK", 206, 223, 11, label);
-    centered("CAMPUS LIBRARY", 801, 223, 11, label);
-    centered("STUDENT CENTRE", 204, 559, 11, label);
-    centered("GREEN COMMON", 801, 759, 11, label);
-    centered("UNIVERSITY ROAD", 205, 407, 10, {192, 210, 193, 170});
-    centered("UNIVERSITY ROAD", 800, 407, 10, {192, 210, 193, 170});
+    const Color label{35, 77, 60, 255};
+    centered("SCIENCE BLOCK", 206, 223, 17, label);
+    centered("CAMPUS LIBRARY", 801, 223, 17, label);
+    centered("STUDENT CENTRE", 204, 559, 17, label);
+    centered("GREEN COMMON", 801, 759, 17, label);
+    centered("UNIVERSITY ROAD", 205, 407, 16, {245, 249, 235, 255});
+    centered("UNIVERSITY ROAD", 800, 407, 16, {245, 249, 235, 255});
     rlPushMatrix();
     rlTranslatef(504, 130, 0); rlRotatef(-90, 0, 0, 1);
-    centered("CAMPUS AVENUE", 0, 0, 10, {192, 210, 193, 170});
+    centered("CAMPUS AVENUE", 0, 0, 16, {245, 249, 235, 255});
     rlPopMatrix();
     rlPushMatrix();
     rlTranslatef(504, 680, 0); rlRotatef(-90, 0, 0, 1);
-    centered("CAMPUS AVENUE", 0, 0, 10, {192, 210, 193, 170});
+    centered("CAMPUS AVENUE", 0, 0, 16, {245, 249, 235, 255});
     rlPopMatrix();
 }
 
@@ -290,6 +293,8 @@ void drawCar(const Vehicle& vehicle, bool selected) {
 }
 
 } // namespace
+
+void setSceneFont(Font font) { sceneFont = font; }
 
 void drawScene(const TrafficSimulation& simulation, Rectangle viewport, float zoom,
                bool showRoutes, bool showLabels, bool showBoundary, int selectedId) {
